@@ -42,7 +42,7 @@ function videocall(stream) {
 console.log('Requesting local stream');
 const options = {audio: false, video: true};
 navigator.mediaDevices
-    .getUserMedia(options)
+    .getDisplayMedia(options)
     .then(gotStream)
     .catch(function(e) {
       alert('getUserMedia() failed');
