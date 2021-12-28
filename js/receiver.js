@@ -6,7 +6,15 @@ const form = document.getElementById("form");
 
 let remoteStream;
 
-let pc2 = new RTCPeerConnection();
+const servers = {
+  iceServers: [
+    {
+      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+    },
+  ],
+  iceCandidatePoolSize: 10,
+};
+let pc2 = new RTCPeerConnection(servers);
 
 pc2.onicecandidate = e => {
   console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc2.localDescription));
@@ -19,7 +27,6 @@ pc2.onaddstream = function(e) {
   video2.srcObject = remoteStream;
   console.log(remoteStream)
   console.log('Received remote stream');
-  
 };
 
 offerBtn.onclick = async () => {

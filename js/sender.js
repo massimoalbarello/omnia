@@ -15,7 +15,15 @@ function gotStream(stream) {
 }
 
 function videocall(stream) {
-  const pc1 = new RTCPeerConnection();
+  const servers = {
+    iceServers: [
+      {
+        urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+      },
+    ],
+    iceCandidatePoolSize: 10,
+  };
+  const pc1 = new RTCPeerConnection(servers);
   pc1.addStream(stream);
 
   pc1.onicecandidate = e => {
@@ -40,7 +48,7 @@ function videocall(stream) {
 }
 
 console.log('Requesting local stream');
-const options = {audio: false, video: true};
+const options = {audio: true, video: true};
 navigator.mediaDevices
     .getDisplayMedia(options)
     .then(gotStream)
