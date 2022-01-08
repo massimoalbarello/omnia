@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+  
+<html>
+
+<head>
+	<title>Omnia</title>
+	<basefont size=4></basefont>
+
+	<style>
+        #cursor {
+            pointer-events: none;
+            /* doing this makes sure .elementFromPoint 
+               do not acquires the image cursor object */
+            position: absolute;
+        }
+        /* makes the cursor invisible */
+        * {
+            cursor: none;
+        }
+    </style>
+</head>
+
+<body bgcolor=FFFFFF>
+
+	<h1>Welcome to Omnia!</h1>
+
+	<h2>A network of WoT devices acting as one ubiquitous computer.</h2>
+
+	<p><a href=http://www.google.com/>Google </a> or <a href=http://www.yahoo.com/>Yahoo </a> ? </p>
+
+	<img id="cursor" src="https://media.geeksforgeeks.org/wp-content/uploads/20200319212118/cursor2.png" width="15" height="20"/>
+
+		<script>
+		
+		var x, y;
+
+		// Create WebSocket connection.
+		const socket = new WebSocket('ws://localhost:6969');
+
+		// Listen for messages
+		socket.addEventListener('message', function (event) {
+			const data = JSON.parse(event.data);
+			console.log(data);
+			// Gets the x,y position of the mouse cursor
+			x = data.message.x;
+			y = data.message.y;
+
+			// sets the image cursor to new relative position
+			cursor.style.left = x + "px";
+			cursor.style.top = y + "px";
+
+			if (data.message.click) {
+				onReceivedClick();
+			}
+		});
+		
+		// Image of cursor
+		var cursor = document.getElementById("cursor"); 
+	
+		/*
+			The following event is selecting the element
+			on the image cursor and fires click() on it.
+			The following event is triggered only when mouse is pressed.
+			*/
+		
+		function onReceivedClick() {
+			// gets the object on image cursor position
+			var tmp = document.elementFromPoint(x, y); 
+			console.log(tmp);
+			tmp.click();
+			cursor.style.left = x + "px";
+			cursor.style.top = y + "px";
+		}
+
+		window.addEventListener("click", (e) => {
+			if (e.isTrusted) {
+				console.log("Blocking click of real mouse");
+				e.preventDefault();
+			}
+		});
+
+	</script>
+</body>
+
+</html>
