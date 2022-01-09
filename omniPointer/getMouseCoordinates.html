@@ -6,8 +6,7 @@
     const socket = new WebSocket('ws://localhost:6969');
 
     var data;
-    // coordinate function that calculate the X
-    // coordinate and Y coordinates
+    
     function getCoordinates(event) {
         data = {
             device: "pointer",
@@ -17,7 +16,7 @@
             y: event.clientY,
             click: false
         }
-        console.log(data.x, data.y);
+        // console.log(data.x, data.y);
         socket.send(JSON.stringify(data));
 
         document.getElementById("X").value = data.x;
@@ -25,10 +24,6 @@
     }
 
     window.addEventListener("mouseup", function(e) {
-        // gets the object on image cursor position
-        var tmp = document.elementFromPoint(data.x, data.y); 
-        tmp.click();
-        console.log(tmp);
         data = {
             device: "pointer",
             // clientX gives horizontal coordinate
@@ -46,17 +41,15 @@
 <!-- onmousemove event is called when the mouse
      pointer is moving over the screen -->
  
-<!-- calling of coordinate function -->
- 
 <body onmousemove="getCoordinates(event)">
 
-    <!-- X coordinate is stored in X-coordinate variable -->
+    <!-- print value of X coordinate in text area -->
     X-coordinate
     <input type="text" id="X">
     <br>
     <br>
 
-    <!-- Y coordinate is stored in Y-coordinate variable -->
+    <!-- print value of Y coordinate in text area -->
     Y-coordinate
     <input type="text" id="Y">
 
