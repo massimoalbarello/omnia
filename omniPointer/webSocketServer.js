@@ -7,6 +7,9 @@ const nearbyThings = {
     "10.4.23.47": {
         device: "pointer",
     },
+    "10.4.23.65": {
+        device: "keyboard",
+    },
     "10.4.23.83": {
         device: "display",
     }
@@ -19,6 +22,7 @@ var currentOutputDevice;
 
 // to be removed once devices have their own ip
 var tmp = ["10.4.23.47"];
+var keyboardConnected = false;
 ///////////////////////////////////////////////
 
 // !!!!!!!!!!!!!!!! start "getMouseCoordinate" first and then "moveMouseExtension" on browser !!!!!!!!!!!!!!!!
@@ -31,24 +35,41 @@ wss.on('connection', (ws, req) => {
     // to be removed once devices have their own ip
     const clientIp = tmp[tmp.length - 1];
     tmp.pop();
-    tmp.push("10.4.23.83");
+    if (keyboardConnected) {
+        tmp.push("10.4.23.83");
+    }
+    else {
+        tmp.push("10.4.23.65");
+        keyboardConnected = true;
+    }
     ///////////////////////////////////////////////
 
-    if (nearbyThings[clientIp].device === "pointer") {
-        clients.set(ws, nearbyThings[clientIp]);
-    }
-    else if (nearbyThings[clientIp].device === "display") {
+    if (nearbyThings[clientIp].device === "display") {
         clients.set(ws, nearbyThings[clientIp]);
         currentOutputDevice = {
             ws: ws,
         }
     }
+    clients.set(ws, nearbyThings[clientIp]);
     console.log("Connected to: ", nearbyThings[clientIp].device);
-    
+
     ws.on('message', (messageAsString) => {
         const message = JSON.parse(messageAsString);
         // console.log("Received message: ", message);
         if (message.device === "pointer") {
+            if (currentOutputDevice) {
+                const metadata = clients.get(ws);
+                const data = {
+                    message: message,
+                    inputFrom: metadata.device, 
+                }
+                currentOutputDevice.ws.send(JSON.stringify(data));
+            }
+            else {
+                // console.log("No output device found.")
+            }
+        }
+        else if (message.device === "keyboard") {
             if (currentOutputDevice) {
                 const metadata = clients.get(ws);
                 const data = {

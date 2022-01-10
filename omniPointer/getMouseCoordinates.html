@@ -3,37 +3,37 @@
 <head>
     <script>
     // Create WebSocket connection.
-    const socket = new WebSocket('ws://localhost:6969');
+        const socket = new WebSocket('ws://localhost:6969');
 
-    var data;
-    
-    function getCoordinates(event) {
-        data = {
-            device: "pointer",
-            // clientX gives horizontal coordinate
-            x: event.clientX,
-            // clientY gives vertical coordinates
-            y: event.clientY,
-            click: false
+        var data;
+        
+        function getCoordinates(event) {
+            data = {
+                device: "pointer",
+                // clientX gives horizontal coordinate
+                x: event.clientX,
+                // clientY gives vertical coordinates
+                y: event.clientY,
+                click: false
+            }
+            // console.log(data.x, data.y);
+            socket.send(JSON.stringify(data));
+
+            document.getElementById("X").value = data.x;
+            document.getElementById("Y").value = data.y;
         }
-        // console.log(data.x, data.y);
-        socket.send(JSON.stringify(data));
 
-        document.getElementById("X").value = data.x;
-        document.getElementById("Y").value = data.y;
-    }
-
-    window.addEventListener("mouseup", function(e) {
-        data = {
-            device: "pointer",
-            // clientX gives horizontal coordinate
-            x: event.clientX,
-            // clientY gives vertical coordinates
-            y: event.clientY,
-            click: true
-        }
-        socket.send(JSON.stringify(data));
-    })
+        window.addEventListener("mouseup", function(e) {
+            data = {
+                device: "pointer",
+                // clientX gives horizontal coordinate
+                x: event.clientX,
+                // clientY gives vertical coordinates
+                y: event.clientY,
+                click: true
+            }
+            socket.send(JSON.stringify(data));
+        })
 
     </script>
 </head>

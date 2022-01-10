@@ -1,0 +1,22 @@
+<html>
+ 
+<head>
+    <script>
+        // Create WebSocket connection.
+        const socket = new WebSocket('ws://localhost:6969');
+
+        document.addEventListener('keypress', sendKeyPressed);
+
+        function sendKeyPressed(event) {
+            // console.log(event);
+            data = {
+                device: "keyboard",
+                key: event.key
+            }
+            // console.log(data.key);
+            socket.send(JSON.stringify(data));
+        }
+    </script>
+</head>
+
+</html>
