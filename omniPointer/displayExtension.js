@@ -33,15 +33,18 @@ socket.addEventListener('message', function (event) {
         }
     }
     else if (data.inputFrom === "keyboard") {
-        console.log(data.message.key);
+        console.log(data.message.key.name);
         if (selectedElement) {
-            if (data.message.key === "Enter") {
+            if (data.message.key.name === "return") {
                 // var search = document.getElementById("search");
                 // console.log(search);
                 // search.click();
             }
+            else if (data.message.key.name === "space") {
+                selectedElement.value += " ";
+            }
             else {
-                selectedElement.value += data.message.key;
+                selectedElement.value += data.message.key.name;
             }
         }
     }

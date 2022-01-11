@@ -10,6 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@node-wot/binding-http": "^0.7.8",
+    "@node-wot/core": "^0.7.8",
+    "iohook": "^0.6.6",
+    "keypress": "^0.2.1",
     "ws": "^8.4.0"
   }
 }
