@@ -17,34 +17,38 @@ const socket = new WebSocket('ws://localhost:6969');
 
 // Listen for messages
 socket.addEventListener('message', function (event) {
-    const data = JSON.parse(event.data);
-    if (data.inputFrom === "pointer") {
+    //console.log(event);
+    const messageAsString = event.data;
+    const message = JSON.parse(messageAsString);
+    const data = message.data;
+    const metadata = message.metadata;
+    if (metadata.thing === "pointer") {
         // Gets the x,y position of the mouse cursor
-        x = data.message.x;
-        y = data.message.y;
+        x = data.x;
+        y = data.y;
         // console.log(x, y);
         // sets the image cursor to new relative position
         cursor.style.left = x + 'px';
         cursor.style.top = y + 'px';
         // console.log(cursor);
 
-        if (data.message.click) {
+        if (data.button) {
             onReceivedClick();
         }
     }
-    else if (data.inputFrom === "keyboard") {
-        console.log(data.message.key.name);
+    else if (metadata.thing === "keyboard") {
+        console.log(data.name);
         if (selectedElement) {
-            if (data.message.key.name === "return") {
+            if (data.name === "return") {
                 // var search = document.getElementById("search");
                 // console.log(search);
                 // search.click();
             }
-            else if (data.message.key.name === "space") {
+            else if (data.name === "space") {
                 selectedElement.value += " ";
             }
             else {
-                selectedElement.value += data.message.key.name;
+                selectedElement.value += data.name;
             }
         }
     }

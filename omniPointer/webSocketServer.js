@@ -88,14 +88,13 @@ wss.on('connection', (ws, req) => {
 
     ws.on('message', (messageAsString) => {
         const message = JSON.parse(messageAsString);
-        // log(message, "m", );
+        // log(message, "m");
         if (currentOutputThing) {
-            const metadata = clients.get(ws);
-            const data = {
-                message: message,
-                inputFrom: metadata.thing, 
+            const event = {
+                data: message,
+                metadata: clients.get(ws)
             }
-            currentOutputThing.ws.send(JSON.stringify(data));
+            currentOutputThing.ws.send(JSON.stringify(event));
         }
         else {
             // log("No output thing found.", "!")
