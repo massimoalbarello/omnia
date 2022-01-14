@@ -16,7 +16,7 @@ const td = {
 
 const pointer = new ThingWot(8081, td);
 
-pointer.exposeThing();
+pointer.exposeThing("input");
 
 ioHook.start();
         

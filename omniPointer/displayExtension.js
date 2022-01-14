@@ -12,7 +12,7 @@ document.body.appendChild(cursor);
 var x, y;
 var selectedElement;
 
-// Create WebSocket connection.
+// Create WebSocket connection used to communicate with web server running on the same device 
 const socket = new WebSocket('ws://localhost:6969');
 
 // Listen for messages

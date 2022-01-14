@@ -17,7 +17,7 @@ const td = {
 const keyboard = new ThingWot(8082, td);
 
 
-keyboard.exposeThing();
+keyboard.exposeThing("input");
 
 // make `process.stdin` begin emitting "keypress" events
 keypress(process.stdin);
