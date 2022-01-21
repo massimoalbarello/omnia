@@ -1,5 +1,6 @@
 // code for InjectCode extension: https://chrome.google.com/webstore/detail/injectcode/flhghpihapijancfhnicbnjifdodohpi
 
+// check out https://www.silveos.com/
 var cursor = document.createElement("img");
 cursor.src = 'https://media.geeksforgeeks.org/wp-content/uploads/20200319212118/cursor2.png';
 cursor.style.pointerEvents = 'none';

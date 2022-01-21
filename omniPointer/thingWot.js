@@ -61,7 +61,7 @@ exports.ThingWot = class {
         const browserExtensionIp = "10.4.23.83"; 
    
         // to be removed once things have their own ip
-        var tmp = ["10.4.23.47"];
+        var tmp = ["http://localhost:8081/pointer"];
         var keyboardConnected = false;
         ///////////////////////////////////////////////
 
@@ -78,7 +78,7 @@ exports.ThingWot = class {
                 tmp.push("10.4.23.83");
             }
             else {
-                tmp.push("10.4.23.65");
+                tmp.push("http://localhost:8082/keyboard");
                 keyboardConnected = true;
             }
             ///////////////////////////////////////////////
