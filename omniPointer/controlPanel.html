@@ -1,0 +1,28 @@
+<body>
+
+<h1>Available apps:</h1>
+<ul id="appList"></ul>
+
+<script>
+
+    const socket = new WebSocket('ws://localhost:2000');
+
+    socket.addEventListener("message", (event) => {
+        availableApps = JSON.parse(event.data);
+        console.log(availableApps);
+
+        const appList = document.getElementById("appList");
+        availableApps.forEach((app)=>{
+            let btn = document.createElement("button");
+            btn.innerText = app;
+            btn.addEventListener("click", () => {
+                console.log(app);
+                socket.send(JSON.stringify(app));
+            });
+            appList.appendChild(btn);
+        });
+    });
+
+</script>
+
+</body>
