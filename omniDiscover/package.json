@@ -1,0 +1,17 @@
+{
+  "name": "omniDiscover",
+  "version": "1.0.0",
+  "description": "",
+  "main": "discoverLocalAddresses.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@node-wot/binding-http": "^0.7.8",
+    "@node-wot/core": "^0.7.8",
+    "local-devices": "^3.2.0"
+  }
+}
