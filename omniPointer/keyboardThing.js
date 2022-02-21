@@ -10,7 +10,8 @@ const td = {
     actions: {
         wsAddress: {
             type: "string",
-        }
+        },
+        closeWs: {}
     }
 };
 

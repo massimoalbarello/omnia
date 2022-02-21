@@ -13,7 +13,8 @@ const td = {
     actions: {
         inputThings: {
             type: "object",
-        }
+        },
+        closeWsServer: {}
     }
 }
 

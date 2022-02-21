@@ -1,12 +1,25 @@
 <body>
 
-<h1>Available apps:</h1>
-<ul id="appList"></ul>
+<div id="availableApps">
+    <h1>Available apps:</h1>
+    <ul id="appList"></ul>
+</div>
+
+<div id="selectedApp">
+    <h1 id="show"></h1>
+    <button onclick="stopApp()">Stop</button>
+</div>
 
 <script>
 
     const socket = new WebSocket('ws://localhost:2000');
 
+    var availableApps = document.getElementById('availableApps');
+    availableApps.style.display = 'block';
+
+    var selectedApp = document.getElementById('selectedApp');
+    selectedApp.style.display = 'none';
+    
     socket.addEventListener("message", (event) => {
         availableApps = JSON.parse(event.data);
         console.log(availableApps);
@@ -16,12 +29,40 @@
             let btn = document.createElement("button");
             btn.innerText = app;
             btn.addEventListener("click", () => {
-                console.log(app);
-                socket.send(JSON.stringify(app));
+                hideAvailableApps(app);
             });
             appList.appendChild(btn);
         });
     });
+
+    function hideAvailableApps(app) {
+
+        console.log(app);
+        socket.send(JSON.stringify(app));
+
+        let availableApps = document.getElementById('availableApps');
+        availableApps.style.display = 'none';
+
+        let selectedApp = document.getElementById('selectedApp');
+        selectedApp.style.display = 'block';
+
+        let show = document.getElementById('show');
+        show.innerHTML = "Running app: " + app;
+    }
+
+    function showAvailableApps() {
+        let availableApps = document.getElementById('availableApps');
+        availableApps.style.display = 'block';
+
+        let selectedApp = document.getElementById('selectedApp');
+        selectedApp.style.display = 'none';
+    }
+
+    function stopApp() {
+        console.log("Stopping app");
+        socket.send("Stop app");
+        showAvailableApps();
+    }
 
 </script>
 

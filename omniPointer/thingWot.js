@@ -31,9 +31,19 @@ exports.ThingWot = class {
                         this.log(address, "@")
                         this.ws = new WebSocket(address);
                     });
+                    this.thing.setActionHandler("closeWs", () => {
+                        this.log("Thing disconnected", ".")
+                        this.ws = "";
+                    });
                 }
                 else {
                     this.thing.writeProperty("wsAddress", "ws://localhost:" + 6969);
+                    this.thing.setActionHandler("closeWsServer", () => {
+                        this.log("Thing disconnected", ".")
+                        this.wss = "";
+                        this.tmp = ["http://localhost:8081/pointer"];
+                        this.keyboardConnected = false;
+                    });
                 }
                 this.thing.expose();
                 this.log("Thing exposed", "#");
@@ -57,14 +67,13 @@ exports.ThingWot = class {
         // map to store a client's metadata
         const clients = new Map();
 
-        var browserExtension;
+        this.browserExtension = "";
         const browserExtensionIp = "10.4.23.83"; 
    
         // to be removed once things have their own ip
-        var tmp = ["http://localhost:8081/pointer"];
-        var keyboardConnected = false;
+        this.tmp = ["http://localhost:8081/pointer"];
+        this.keyboardConnected = false;
         ///////////////////////////////////////////////
-
 
         this.wss = new WebSocket.Server({ port: port });
         this.wss.on('connection', (ws, req) => {
@@ -72,21 +81,21 @@ exports.ThingWot = class {
             // const clientIp = req.socket.remoteAddress;
                     
             // to be removed once things have their own ip
-            const clientIp = tmp[tmp.length - 1];
-            tmp.pop();
-            if (keyboardConnected) {
-                tmp.push("10.4.23.83");
+            const clientIp = this.tmp[this.tmp.length - 1];
+            this.tmp.pop();
+            if (this.keyboardConnected) {
+                this.tmp.push("10.4.23.83");
             }
             else {
-                tmp.push("http://localhost:8082/keyboard");
-                keyboardConnected = true;
+                this.tmp.push("http://localhost:8082/keyboard");
+                this.keyboardConnected = true;
             }
             ///////////////////////////////////////////////
 
             if (Object.keys(this.inputThings).includes(clientIp) || clientIp == browserExtensionIp) {
                     
                 if (clientIp == browserExtensionIp) {
-                    browserExtension = {
+                    this.browserExtension = {
                         ws: ws,
                     }
                     this.log("Browser page opened.", "-")
@@ -99,12 +108,12 @@ exports.ThingWot = class {
                 ws.on('message', (messageAsString) => {
                     const message = JSON.parse(messageAsString);
                     // this.log(message, "m");
-                    if (browserExtension) {
+                    if (this.browserExtension !== "") {
                         const event = {
                             data: message,
                             metadata: clients.get(ws)
                         }
-                        browserExtension.ws.send(JSON.stringify(event));
+                        this.browserExtension.ws.send(JSON.stringify(event));
                     }
                     else {
                         // this.log("No output thing found.", "!")
@@ -112,7 +121,7 @@ exports.ThingWot = class {
                 });
 
                 ws.on("close", () => {
-                    if (ws != browserExtension.ws) {
+                    if (ws != this.browserExtension.ws) {
                         const metadata = clients.get(ws);
                         this.log("Closed connection with: " + metadata.thing, "!");
                         clients.delete(ws);
@@ -128,7 +137,7 @@ exports.ThingWot = class {
             this.ws.send(JSON.stringify(data));        
         }
         else {
-            this.log("Not connected to manager", "^");
+            this.log("Not connected to output Thing", "^");
         }
     }
 

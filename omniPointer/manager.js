@@ -30,7 +30,22 @@ controlPanelWSS.on('connection', (ws, req) => {
         if (!appStarted) {
             log(message.toString(), "$");
             appStarted = true;
-            startwebComputer();
+            // devices used by the current app
+            var display = things["http://localhost:8080/display"];
+            var pointer = things["http://localhost:8081/pointer"];
+            var keyboard = things["http://localhost:8082/keyboard"];
+            startApp(display, pointer, keyboard);
+        }
+        else {
+            log(message.toString(), ".");
+            appStarted = false;
+            // devices used by the current app
+            var display = things["http://localhost:8080/display"];
+            var pointer = things["http://localhost:8081/pointer"];
+            var keyboard = things["http://localhost:8082/keyboard"];
+            // tell all devices involved in the app to disconnect
+            stopApp(display, pointer, keyboard);
+            localURLs = ["http://localhost:8080/display", "http://localhost:8081/pointer", "http://localhost:8082/keyboard"];
         }
     });
 });
@@ -66,9 +81,9 @@ function checkAppsAvailable() {
     return [false, []];
 }
 
-async function startwebComputer() {
+async function startApp(display, pointer, keyboard) {
 
-    log("Starting web computer!", "!");
+    log("Starting app!", "!");
     // once the manager knows which device is which (thanks to the TDs), set up the connections between the devices           
     const inputThings = {
         "http://localhost:8081/pointer": {
@@ -82,12 +97,21 @@ async function startwebComputer() {
     }
 
     // get the WS where the output device listens for connectons and set the devices it will receive from
-    const outWsAddress = await things["http://localhost:8080/display"].readProperty("wsAddress");
-    things["http://localhost:8080/display"].invokeAction("inputThings", inputThings);
+    const outWsAddress = await display.readProperty("wsAddress");
+    display.invokeAction("inputThings", inputThings);
 
     // set WS that input devices use to communicate their data
-    things["http://localhost:8081/pointer"].invokeAction("wsAddress", outWsAddress);
-    things["http://localhost:8082/keyboard"].invokeAction("wsAddress", outWsAddress);
+    pointer.invokeAction("wsAddress", outWsAddress);
+    keyboard.invokeAction("wsAddress", outWsAddress);
+}
+
+function stopApp(display, pointer, keyboard) {
+
+    log("Stopping app", ".");
+
+    display.invokeAction("closeWsServer");
+    pointer.invokeAction("closeWs");
+    keyboard.invokeAction("closeWs");
 }
 
 function log(value, separator) {
