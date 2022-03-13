@@ -19,7 +19,8 @@ app.set("view engine", "ejs");
 app.get('/', (req, res) => {
     res.render('root.ejs', {
         sender: `https://${localIp}:${port}/sender.html`,
-        receiver: `https://${localIp}:${port}/receiver.html`
+        receiver: `https://${localIp}:${port}/receiver.html`,
+        scanner: `https://${localIp}:${port}/scanner.html`
     })
 });
 
