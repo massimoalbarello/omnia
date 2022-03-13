@@ -1,5 +1,5 @@
 
-const OPERATOR_API_KEY = "JXtMocODvVVibphu7gL8t4aK9J1jIRDrqk7dnqI8qXJd4pJLWPwhTPZUHX7iF1NHTF02QuZWWHYYjBBX";
+const OPERATOR_API_KEY = "your_operator_api_key";
 const operator = new evrythng.Operator(OPERATOR_API_KEY);
 // const thngIdSender = "VTyqPXxTCd3P3hddsKFfQhch";    // scan the QR to learn this ID
 // const thngIdReceiver = "VTy6QSN4nVbRE2cg9HcFUdpp";  // scan the QR to learn this ID
@@ -9,7 +9,7 @@ evrythng.setup({
 })
 evrythng.use(ScanThng);
 
-const APPLICATION_API_KEY = 'gTibS5rdLBrH38ABAREv4WnvKvD0bqxGTdJ1ikybjRCTLy6uVtmUMsGT1zLi1V4wylWBfV8PHvYK9JHa';
+const APPLICATION_API_KEY = 'your_trusted_api_key';
 const app = new evrythng.Application(APPLICATION_API_KEY);
 
 var thngIdSender;
