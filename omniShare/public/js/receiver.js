@@ -1,10 +1,11 @@
 const video2 = document.querySelector('video#video2');
-const offerInput = document.getElementById("offer");
-const answerOutput = document.getElementById("answer");
-const offerBtn = document.getElementById("offerBtn");
-const form = document.getElementById("form");
 
-let remoteStream;
+const OPERATOR_API_KEY = "your_operator_api_key";
+const operator = new evrythng.Operator(OPERATOR_API_KEY);
+const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
+
+const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${OPERATOR_API_KEY}`;
+const socket = new WebSocket(url);
 
 const servers = {
   iceServers: [
@@ -14,12 +15,26 @@ const servers = {
   ],
   iceCandidatePoolSize: 10,
 };
+
 let pc2 = new RTCPeerConnection(servers);
+
+let remoteStream;
+
+socket.addEventListener('message', async (message) => {
+  const offer = JSON.parse(JSON.parse(message.data.slice(1, -1)).value);
+  console.log(offer);
+  await pc2.setRemoteDescription(offer);
+  console.log("Offer set!");
+  const answer = await pc2.createAnswer();
+  pc2.setLocalDescription(answer);
+});
 
 pc2.onicecandidate = e => {
   console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc2.localDescription));
-  answerOutput.innerText = JSON.stringify(pc2.localDescription);
-  form.style.display = "none";
+  const payload = { customFields: { sdp: JSON.stringify(pc2.localDescription) } };
+  operator.thng(thngId).update(payload).then((thng) => {
+    console.log(thng);
+  });
 }
 
 pc2.onaddstream = function(e) {
@@ -28,14 +43,3 @@ pc2.onaddstream = function(e) {
   console.log(remoteStream)
   console.log('Received remote stream');
 };
-
-offerBtn.onclick = async () => {
-  const offer = offerInput.value;
-  if (offer) {
-    console.log("Setting offer: " + offer);
-    await pc2.setRemoteDescription(JSON.parse(offer));
-    console.log("Offer set!");
-    const answer = await pc2.createAnswer();
-    pc2.setLocalDescription(answer);
-  }
-}

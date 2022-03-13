@@ -3,7 +3,7 @@
 <head>
 
     <meta charset="utf-8">
-    <meta name="description" content="WebRTC videocall">
+    <meta name="description" content="WebRTC screen share">
     <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1, maximum-scale=1">
     <meta name="mobile-web-app-capable" content="yes">
     <meta id="theme-color" name="theme-color" content="#ffffff">
@@ -15,24 +15,12 @@
 
 <body>
 
-<div id="container">
-
     <div id="videos">
-        <video id="video2" playsinline autoplay></video>
+        <video id="video2" autoplay muted playsinline>If the video doesn't start automatically, right click -> show all controls</video>
     </div>
 
-    <div  id="form">
-        <textarea rows="5" id="offer"></textarea>
-        <button id="offerBtn">Set offer</button>
-    </div>
-    <div class="code-container"><code id="answer"></code></div>
-
-
-    <div id="status"></div>
-
-</div>
-
-<script src="js/receiver.js" async></script>
+    <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
+    <script src="js/receiver.js" async></script>
 
 </body>
 </html>
