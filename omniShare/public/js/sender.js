@@ -1,10 +1,14 @@
 const video1 = document.getElementById("video1");
 
-const OPERATOR_API_KEY = "your_operator_api_key";
-const operator = new evrythng.Operator(OPERATOR_API_KEY);
+evrythng.setup({
+  apiVersion: 1
+});
+
+const DEVICE_API_KEY = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";
+const device = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
 
-const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${OPERATOR_API_KEY}`;
+const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
 const socket = new WebSocket(url);
 
 const servers = {
@@ -40,7 +44,7 @@ function screenShare(stream) {
   pc1.onicecandidate = e => {
     console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc1.localDescription));
     const payload = { customFields: { sdp: JSON.stringify(pc1.localDescription) } };
-    operator.thng(thngId).update(payload).then((thng) => {
+    device.update(payload).then((thng) => {
       console.log(thng);
     });
   }

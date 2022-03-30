@@ -1,10 +1,14 @@
 const video2 = document.querySelector('video#video2');
 
-const OPERATOR_API_KEY = "your_operator_api_key";
-const operator = new evrythng.Operator(OPERATOR_API_KEY);
+evrythng.setup({
+  apiVersion: 1
+});
+
+const DEVICE_API_KEY = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
+const device = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 
-const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${OPERATOR_API_KEY}`;
+const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
 const socket = new WebSocket(url);
 
 const servers = {
@@ -32,7 +36,7 @@ socket.addEventListener('message', async (message) => {
 pc2.onicecandidate = e => {
   console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc2.localDescription));
   const payload = { customFields: { sdp: JSON.stringify(pc2.localDescription) } };
-  operator.thng(thngId).update(payload).then((thng) => {
+  device.update(payload).then((thng) => {
     console.log(thng);
   });
 }
