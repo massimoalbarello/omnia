@@ -1,15 +1,16 @@
-const video2 = document.querySelector('video#video2');
+const video = document.getElementById('video');
+const receiverQRcode = document.getElementById('receiverQRcode');
 
 evrythng.setup({
   apiVersion: 1
 });
 
 const DEVICE_API_KEY = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
-const device = new evrythng.Device(DEVICE_API_KEY);
+const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 
-const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
-const socket = new WebSocket(url);
+const offerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
+const offerPropertyWs = new WebSocket(offerPropertyWsUrl);
 
 const servers = {
   iceServers: [
@@ -20,30 +21,41 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-let pc2 = new RTCPeerConnection(servers);
+let peerConnection = new RTCPeerConnection(servers);
 
-let remoteStream;
-
-socket.addEventListener('message', async (message) => {
+offerPropertyWs.onmessage = async (message) => {
   const offer = JSON.parse(JSON.parse(message.data.slice(1, -1)).value);
-  console.log(offer);
-  await pc2.setRemoteDescription(offer);
-  console.log("Offer set!");
-  const answer = await pc2.createAnswer();
-  pc2.setLocalDescription(answer);
-});
+  console.log("Received peer's session description");
+  await peerConnection.setRemoteDescription(offer);
+  console.log("Set remote session description as peer's offer");
+  const answer = await peerConnection.createAnswer();
+  peerConnection.setLocalDescription(answer);
+  console.log("Set local session description as answer");
+};
 
-pc2.onicecandidate = e => {
-  console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc2.localDescription));
-  const payload = { customFields: { sdp: JSON.stringify(pc2.localDescription) } };
-  device.update(payload).then((thng) => {
-    console.log(thng);
+peerConnection.onicecandidate = () => {
+  console.log("New ICE candidate");
+  const payload = { customFields: { sdp: JSON.stringify(peerConnection.localDescription) } };
+  thng.update(payload).then(() => {
+    console.log("Local session description updated on EVRYTHNG thng");
   });
+  receiverQRcode.hidden = true;
+  video.hidden = false;
 }
 
-pc2.onaddstream = function(e) {
-  remoteStream = e.stream;
-  video2.srcObject = remoteStream;
-  console.log(remoteStream)
-  console.log('Received remote stream');
+peerConnection.onaddstream = (event) => {
+  video.srcObject = event.stream;
+  console.log('Received remote stream set as video source');
 };
+
+
+
+function openFullscreen() {
+  if (video.requestFullscreen) {
+    video.requestFullscreen();
+  } else if (video.webkitRequestFullscreen) { /* Safari */
+    video.webkitRequestFullscreen();
+  } else if (video.msRequestFullscreen) { /* IE11 */
+    video.msRequestFullscreen();
+  }
+}

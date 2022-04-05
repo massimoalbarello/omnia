@@ -14,11 +14,12 @@
 </head>
 
 <body>
-
-    <div id="videos">
-        <video id="video2" autoplay muted playsinline>If the video doesn't start automatically, right click -> show all controls</video>
-    </div>
-
+    <img id="receiverQRcode" src="./figures/receiverQRcode.PNG" alt="Receiver QR code">
+    
+    <video id="video" hidden="true" autoplay muted playsinline></video>
+    
+    <button onclick="openFullscreen()">Open Fullscreen</button>
+    
     <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
     <script src="js/receiver.js" async></script>
 

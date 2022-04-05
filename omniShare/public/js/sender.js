@@ -1,15 +1,15 @@
-const video1 = document.getElementById("video1");
+const senderQRcode = document.getElementById('senderQRcode');
 
 evrythng.setup({
   apiVersion: 1
 });
 
 const DEVICE_API_KEY = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";
-const device = new evrythng.Device(DEVICE_API_KEY);
+const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
 
-const url = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
-const socket = new WebSocket(url);
+const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
+const answerPropertyWs = new WebSocket(answerPropertyWsUrl);
 
 const servers = {
   iceServers: [
@@ -20,36 +20,28 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-const pc1 = new RTCPeerConnection(servers); 
+const peerConnection = new RTCPeerConnection(servers); 
 
-let localStream;
-
-socket.addEventListener('message', (message) => {
+answerPropertyWs.addEventListener('message', (message) => {
   const answer = JSON.parse(JSON.parse(message.data.slice(1, -1)).value);
-  console.log(answer);
-  pc1.setRemoteDescription(answer);
+  console.log("Received peer's session description");
+  peerConnection.setRemoteDescription(answer);
+  console.log("Set remote session description as peer's answer");
+
 });
 
-function gotStream(stream) {
-  console.log('Received local stream');
-  video1.srcObject = stream;
-  localStream = stream;
-  console.log('Start capturing');
-  screenShare(localStream);
-}
-
 function screenShare(stream) {
-  pc1.addStream(stream);
+  peerConnection.addStream(stream);
 
-  pc1.onicecandidate = e => {
-    console.log("New ICE candidate, reprinting SDP: " + JSON.stringify(pc1.localDescription));
-    const payload = { customFields: { sdp: JSON.stringify(pc1.localDescription) } };
-    device.update(payload).then((thng) => {
-      console.log(thng);
+  peerConnection.onicecandidate = () => {
+    console.log("New ICE candidate");
+    const payload = { customFields: { sdp: JSON.stringify(peerConnection.localDescription) } };
+    thng.update(payload).then(() => {
+      console.log("Local session description updated on EVRYTHNG thng");
     });
   }
-  pc1.createOffer().then(o => pc1.setLocalDescription(o)).then(a => {
-    console.log("Set successfully!");
+  peerConnection.createOffer().then((offer) => peerConnection.setLocalDescription(offer)).then(() => {
+    console.log("Set local session description as offer");
   });
 }
 
@@ -57,7 +49,7 @@ console.log('Requesting local stream');
 const options = {audio: true, video: true};
 navigator.mediaDevices
     .getDisplayMedia(options)
-    .then(gotStream)
+    .then(screenShare)
     .catch(function(e) {
       alert('getUserMedia() failed');
       console.log('getUserMedia() error: ', e);
