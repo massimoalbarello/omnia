@@ -26,13 +26,16 @@ const servers = {
 const peerConnection = new RTCPeerConnection(servers); 
 
 peerPropertyWs.onmessage = (message) => {
-    
+
+  const peerAPIkey = JSON.parse(message.data)[0].value;
+  console.log(`Received peer API key: ${peerAPIkey}`);
+
   console.log('Requesting local stream');
   const options = {audio: true, video: true};
   navigator.mediaDevices
     .getDisplayMedia(options)
     .then((stream) => {
-      screenShare(stream, message)
+      screenShare(stream, peerAPIkey)
     })
     .catch(function(e) {
       alert('getUserMedia() failed');
@@ -40,13 +43,10 @@ peerPropertyWs.onmessage = (message) => {
     });
 };
 
-function screenShare(stream, message) {
+function screenShare(stream, peerAPIkey) {
   peerConnection.addStream(stream);
 
-  const peerAPIkey = JSON.parse(message.data)[0].value;
-  console.log(`Received peer API key: ${peerAPIkey}`);
-
-  peerConnection.createOffer().then((offer) => peerConnection.setLocalDescription(offer)).then(console.log("Set local session description as offer"));
+  peerConnection.createOffer().then((offer) => peerConnection.setLocalDescription(offer)).then(console.log("Set offer as local session description"));
 
   const peer = new evrythng.Device(peerAPIkey);
   let offerSet = false;
@@ -61,9 +61,12 @@ function screenShare(stream, message) {
         const answer = JSON.parse(JSON.parse(message.data)[0].value);
         console.log("Received peer's session description");
         peerConnection.setRemoteDescription(answer);
-        console.log("Set remote session description as peer's answer");
+        console.log("Set remote session description to peer's answer");
       });
     };
   };
 };
 
+setInterval(() => {
+  console.log(`Connection state: ${peerConnection.connectionState}`);
+}, 5000);

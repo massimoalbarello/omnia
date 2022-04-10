@@ -38,20 +38,21 @@ peerPropertyWs.onmessage = async (message) => {
       const offer = JSON.parse(JSON.parse(message.data)[0].value);
       console.log("Received peer's session description");
       await peerConnection.setRemoteDescription(offer);
-      console.log("Set remote session description as peer's offer");
+      console.log("Set remote session description to peer's offer");
       const answer = await peerConnection.createAnswer();
       peerConnection.setLocalDescription(answer);
-      console.log("Set local session description as answer");
+      console.log("Set answer as local session description");
       await peer.init();
       peer.property('answer').update(JSON.stringify(answer))
     }
   };
 
-  peerConnection.onaddstream = (event) => {
+  peerConnection.ontrack = (event) => {
     receiverQRcode.hidden = true;
     video.hidden = false;
-    video.srcObject = event.stream;
+    video.srcObject = event.streams[0];
     console.log('Received remote stream set as video source');
+    console.log(event.streams[0]);
   };
 }
 
@@ -65,3 +66,7 @@ function openFullscreen() {
     video.msRequestFullscreen();
   };
 }
+
+setInterval(() => {
+  console.log(`Connection state: ${peerConnection.connectionState}`);
+}, 5000);
