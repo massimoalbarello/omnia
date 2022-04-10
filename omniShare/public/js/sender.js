@@ -14,6 +14,9 @@ const peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
 const answerPropertyWs = new WebSocket(answerPropertyWsUrl);
 
+const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
+const iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+
 const servers = {
   iceServers: [
     {
@@ -43,28 +46,46 @@ peerPropertyWs.onmessage = (message) => {
     });
 };
 
-function screenShare(stream, peerAPIkey) {
-  peerConnection.addStream(stream);
+async function screenShare(stream, peerAPIkey) {
+  for (const track of stream.getTracks()) {
+    peerConnection.addTrack(track, stream);
+  }
 
-  peerConnection.createOffer().then((offer) => peerConnection.setLocalDescription(offer)).then(console.log("Set offer as local session description"));
+  peerConnection.createOffer()
+    .then((offer) => peerConnection.setLocalDescription(offer))
+    .then(console.log("Set offer as local session description"));
 
   const peer = new evrythng.Device(peerAPIkey);
-  let offerSet = false;
-  peerConnection.onicecandidate = async () => {
-    if (!offerSet) {
-      offerSet = true;
-      console.log("New ICE candidate");
-      await peer.init();
-      peer.property('offer').update(JSON.stringify(peerConnection.localDescription));
-        
-      answerPropertyWs.addEventListener('message', (message) => {
-        const answer = JSON.parse(JSON.parse(message.data)[0].value);
-        console.log("Received peer's session description");
-        peerConnection.setRemoteDescription(answer);
-        console.log("Set remote session description to peer's answer");
-      });
-    };
+  await peer.init();
+  peer.property('offer').update(JSON.stringify(peerConnection.localDescription));
+  console.log("Offer sent to peer");
+
+  answerPropertyWs.onmessage = (message) => {
+    const answer = JSON.parse(JSON.parse(message.data)[0].value);
+    console.log("Received answer from peer");
+    peerConnection.setRemoteDescription(answer);
+    console.log("Set peer's answer as remote session description");
+    listenForIceCandidateEvents();
   };
+
+  function listenForIceCandidateEvents() {
+    // addIceCandidate must be called after setRemoteDescription
+    peerConnection.onicecandidate = (event) => {
+      console.log("New local ICE candidate");
+      peer.property('icecandidate').update(JSON.stringify(event.candidate));
+      console.log("Local ICE candidate sent to peer");
+    };
+
+    iceCandidatePropertyWs.onmessage = (message) => {
+      const iceCandidate = JSON.parse(JSON.parse(message.data)[0].value);
+      console.log("Received peer's ICE candidate");
+      peerConnection.addIceCandidate(iceCandidate)
+        .then(() => console.log("Added peer's ICE candidate"))
+        .catch((e) => {
+          console.log("Failure during addIceCandidate(): " + e.name);
+        });
+    };
+  }
 };
 
 setInterval(() => {

@@ -15,6 +15,9 @@ const peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 const offerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
 const offerPropertyWs = new WebSocket(offerPropertyWsUrl);
 
+const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
+const iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+
 const servers = {
   iceServers: [
     {
@@ -26,36 +29,51 @@ const servers = {
 
 const peerConnection = new RTCPeerConnection(servers);
 
-peerPropertyWs.onmessage = async (message) => {
+peerPropertyWs.onmessage = (message) => {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
   const peer = new evrythng.Device(peerAPIkey);
 
-  let answerSet = false;
   offerPropertyWs.onmessage = async (message) => {
-    if (!answerSet) {
-      answerSet = true;
-      const offer = JSON.parse(JSON.parse(message.data)[0].value);
-      console.log("Received peer's session description");
-      await peerConnection.setRemoteDescription(offer);
-      console.log("Set remote session description to peer's offer");
-      const answer = await peerConnection.createAnswer();
-      peerConnection.setLocalDescription(answer);
-      console.log("Set answer as local session description");
-      await peer.init();
-      peer.property('answer').update(JSON.stringify(answer))
-    }
+    const offer = JSON.parse(JSON.parse(message.data)[0].value);
+    console.log("Received peer's offer");
+    await peerConnection.setRemoteDescription(offer);
+    console.log("Set peer's offer as remote session description");
+    listenForIceCandidateEvents();
+    const answer = await peerConnection.createAnswer();
+    peerConnection.setLocalDescription(answer);
+    console.log("Set answer as local session description");
+    await peer.init();
+    peer.property('answer').update(JSON.stringify(answer));
+    console.log("Answer sent to peer");
   };
-
+  
   peerConnection.ontrack = (event) => {
     receiverQRcode.hidden = true;
     video.hidden = false;
     video.srcObject = event.streams[0];
-    console.log('Received remote stream set as video source');
-    console.log(event.streams[0]);
+    console.log('Received remote stream');
   };
-}
 
+  function listenForIceCandidateEvents() {
+    // addIceCandidate must be called after setRemoteDescription
+    peerConnection.onicecandidate = (event) => {
+      console.log("New local ICE candidate");
+      peer.property('icecandidate').update(JSON.stringify(event.candidate));
+      console.log("Local ICE candidate sent to peer");
+    };
+
+    iceCandidatePropertyWs.onmessage = (message) => {
+      const iceCandidate = JSON.parse(JSON.parse(message.data)[0].value);
+      console.log("Received peer's ICE candidate");
+      peerConnection.addIceCandidate(iceCandidate)
+        .then(() => console.log("Added peer's ICE candidate"))
+        .catch((e) => {
+          console.log("Failure during addIceCandidate(): " + e.name);
+        });
+    };
+  }
+};
 
 function openFullscreen() {
   if (video.requestFullscreen) {
