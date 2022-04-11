@@ -46,46 +46,47 @@ peerPropertyWs.onmessage = (message) => {
     });
 };
 
-async function screenShare(stream, peerAPIkey) {
-  for (const track of stream.getTracks()) {
-    peerConnection.addTrack(track, stream);
-  }
-
-  peerConnection.createOffer()
-    .then((offer) => peerConnection.setLocalDescription(offer))
-    .then(console.log("Set offer as local session description"));
-
+function screenShare(stream, peerAPIkey) {
+  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
   const peer = new evrythng.Device(peerAPIkey);
-  await peer.init();
-  peer.property('offer').update(JSON.stringify(peerConnection.localDescription));
-  console.log("Offer sent to peer");
 
-  answerPropertyWs.onmessage = (message) => {
-    const answer = JSON.parse(JSON.parse(message.data)[0].value);
-    console.log("Received answer from peer");
-    peerConnection.setRemoteDescription(answer);
-    console.log("Set peer's answer as remote session description");
-    listenForIceCandidateEvents();
-  };
+  peerConnection.onnegotiationneeded = async () => {
+    peerConnection.createOffer()
+      .then((offer) => peerConnection.setLocalDescription(offer))
+      .then(console.log("Set offer as local session description"))
+      .catch(console.log("Invalid local session description"));
+    
+    await peer.init();
 
-  function listenForIceCandidateEvents() {
-    // addIceCandidate must be called after setRemoteDescription
+    // icecandidate events are fired as soon as the local description is set
     peerConnection.onicecandidate = (event) => {
       console.log("New local ICE candidate");
       peer.property('icecandidate').update(JSON.stringify(event.candidate));
       console.log("Local ICE candidate sent to peer");
     };
 
+    peer.property('offer').update(JSON.stringify(peerConnection.localDescription));
+    console.log("Offer sent to peer");
+  };
+
+  answerPropertyWs.onmessage = (message) => {
+    const answer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
+    console.log("Received answer from peer");
+    peerConnection.setRemoteDescription(answer);
+    console.log("Set peer's answer as remote session description");
+
+    // todo: start listening for remote candidates immediately, store them until remote description is set
     iceCandidatePropertyWs.onmessage = (message) => {
-      const iceCandidate = JSON.parse(JSON.parse(message.data)[0].value);
+      const iceCandidate = new RTCIceCandidate(JSON.parse(JSON.parse(message.data)[0].value));
       console.log("Received peer's ICE candidate");
+      // addIceCandidate must be called after setRemoteDescription
       peerConnection.addIceCandidate(iceCandidate)
         .then(() => console.log("Added peer's ICE candidate"))
         .catch((e) => {
           console.log("Failure during addIceCandidate(): " + e.name);
         });
     };
-  }
+  };
 };
 
 setInterval(() => {

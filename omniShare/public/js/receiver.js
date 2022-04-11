@@ -35,15 +35,36 @@ peerPropertyWs.onmessage = (message) => {
   const peer = new evrythng.Device(peerAPIkey);
 
   offerPropertyWs.onmessage = async (message) => {
-    const offer = JSON.parse(JSON.parse(message.data)[0].value);
+    const offer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
     console.log("Received peer's offer");
     await peerConnection.setRemoteDescription(offer);
     console.log("Set peer's offer as remote session description");
-    listenForIceCandidateEvents();
+
+    // todo: start listening for remote candidates immediately, store them until remote description is set
+    iceCandidatePropertyWs.onmessage = (message) => {
+      const iceCandidate = new RTCIceCandidate(JSON.parse(JSON.parse(message.data)[0].value));
+      console.log("Received peer's ICE candidate");
+      // addIceCandidate must be called after setRemoteDescription
+      peerConnection.addIceCandidate(iceCandidate)
+        .then(() => console.log("Added peer's ICE candidate"))
+        .catch((e) => {
+          console.log("Failure during addIceCandidate(): " + e.name);
+        });
+    };
+
     const answer = await peerConnection.createAnswer();
     peerConnection.setLocalDescription(answer);
     console.log("Set answer as local session description");
+
     await peer.init();
+
+    // icecandidate events are fired as soon as the local description is set
+    peerConnection.onicecandidate = (event) => {
+      console.log("New local ICE candidate");
+      peer.property('icecandidate').update(JSON.stringify(event.candidate));
+      console.log("Local ICE candidate sent to peer");
+    };
+
     peer.property('answer').update(JSON.stringify(answer));
     console.log("Answer sent to peer");
   };
@@ -54,25 +75,6 @@ peerPropertyWs.onmessage = (message) => {
     video.srcObject = event.streams[0];
     console.log('Received remote stream');
   };
-
-  function listenForIceCandidateEvents() {
-    // addIceCandidate must be called after setRemoteDescription
-    peerConnection.onicecandidate = (event) => {
-      console.log("New local ICE candidate");
-      peer.property('icecandidate').update(JSON.stringify(event.candidate));
-      console.log("Local ICE candidate sent to peer");
-    };
-
-    iceCandidatePropertyWs.onmessage = (message) => {
-      const iceCandidate = JSON.parse(JSON.parse(message.data)[0].value);
-      console.log("Received peer's ICE candidate");
-      peerConnection.addIceCandidate(iceCandidate)
-        .then(() => console.log("Added peer's ICE candidate"))
-        .catch((e) => {
-          console.log("Failure during addIceCandidate(): " + e.name);
-        });
-    };
-  }
 };
 
 function openFullscreen() {
@@ -83,6 +85,16 @@ function openFullscreen() {
   } else if (video.msRequestFullscreen) { /* IE11 */
     video.msRequestFullscreen();
   };
+}
+
+let hasPlayed = false;
+function handleFirstPlay(event) {
+  if (!hasPlayed) {
+    console.log("Video has started playing");
+    hasPlayed = true;
+    let vid = event.target;
+    vid.onplay = null;  // remove handler from video element
+  }
 }
 
 setInterval(() => {
