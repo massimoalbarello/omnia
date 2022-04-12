@@ -1,4 +1,5 @@
 const senderQRcode = document.getElementById('senderQRcode');
+const stopSharingBtn = document.getElementById('stopSharingBtn');
 
 evrythng.setup({
   apiVersion: 1
@@ -9,13 +10,13 @@ const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
 
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
-const peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
 const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
-const answerPropertyWs = new WebSocket(answerPropertyWsUrl);
+let answerPropertyWs;
 
 const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
-const iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+let iceCandidatePropertyWs;
 
 const servers = {
   iceServers: [
@@ -26,9 +27,13 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-const peerConnection = new RTCPeerConnection(servers); 
+let peerConnection;
 
 peerPropertyWs.onmessage = (message) => {
+  peerConnection = new RTCPeerConnection(servers); 
+  answerPropertyWs = new WebSocket(answerPropertyWsUrl);
+  iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+
 
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
@@ -76,6 +81,7 @@ function screenShare(stream, peerAPIkey) {
     console.log("Received answer from peer");
     peerConnection.setRemoteDescription(answer);
     console.log("Set peer's answer as remote session description");
+    stopSharingBtn.hidden = false;
 
     // todo: start listening for remote candidates immediately, store them until remote description is set
     iceCandidatePropertyWs.onmessage = (message) => {
@@ -89,8 +95,39 @@ function screenShare(stream, peerAPIkey) {
         });
     };
   };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    switch(peerConnection.iceConnectionState) {
+      case "disconnected":
+      case "closed":
+      case "failed":
+        console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+        stopSharing();
+        break;
+      default:
+        console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+    }
+  }
+  
+  peerConnection.onicegatheringstatechange = (event) => {
+    console.log(event);
+  };
 };
 
-setInterval(() => {
-  console.log(`Connection state: ${peerConnection.connectionState}`);
-}, 5000);
+function stopSharing() {
+  if (peerConnection) {
+    peerConnection.onicecandidate = null;
+    peerConnection.oniceconnectionstatechange = null;
+    peerConnection.onicegatheringstatechange = null;
+    peerConnection.onnegotiationneeded = null;
+
+    peerConnection.close();
+    peerConnection = null;
+    answerPropertyWs.close();
+    answerPropertyWs = null;
+    iceCandidatePropertyWs.close();
+    iceCandidatePropertyWs = null;
+  }
+  stopSharingBtn.hidden = true;
+  console.log("Stopped sharing");
+}

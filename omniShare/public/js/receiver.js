@@ -10,13 +10,13 @@ const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
-const peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
 const offerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
-const offerPropertyWs = new WebSocket(offerPropertyWsUrl);
+let offerPropertyWs;
 
 const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
-const iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+let iceCandidatePropertyWs;
 
 const servers = {
   iceServers: [
@@ -27,9 +27,13 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 
-const peerConnection = new RTCPeerConnection(servers);
+let peerConnection;
 
 peerPropertyWs.onmessage = (message) => {
+  peerConnection = new RTCPeerConnection(servers); 
+  offerPropertyWs = new WebSocket(offerPropertyWsUrl);
+  iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
   const peer = new evrythng.Device(peerAPIkey);
@@ -75,6 +79,23 @@ peerPropertyWs.onmessage = (message) => {
     video.srcObject = event.streams[0];
     console.log('Received remote stream');
   };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    switch(peerConnection.iceConnectionState) {
+      case "disconnected":
+      case "closed":
+      case "failed":
+        console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+        stopSharedVideo();
+        break;
+      default:
+        console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+    }
+  }
+
+  peerConnection.onicegatheringstatechange = (event) => {
+    console.log(event);
+  };
 };
 
 function openFullscreen() {
@@ -97,6 +118,26 @@ function handleFirstPlay(event) {
   }
 }
 
-setInterval(() => {
-  console.log(`Connection state: ${peerConnection.connectionState}`);
-}, 5000);
+function stopSharedVideo() {
+  if (peerConnection) {
+    peerConnection.ontrack = null;
+    peerConnection.onicecandidate = null;
+    peerConnection.onicegatheringstatechange = null;
+    peerConnection.oniceconnectionstatechange = null;
+
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(track => track.stop());
+    }
+
+    peerConnection.close();
+    peerConnection = null;
+    offerPropertyWs.close();
+    offerPropertyWs = null;
+    iceCandidatePropertyWs.close();
+    iceCandidatePropertyWs = null;
+  }
+  video.removeAttribute("srcObject");
+  video.hidden = true;
+  receiverQRcode.hidden = false;
+  console.log("Stopped receiving shared screen");
+}
