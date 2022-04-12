@@ -52,9 +52,11 @@ function screenShare(stream, peerAPIkey) {
 
   peerConnection.onnegotiationneeded = async () => {
     peerConnection.createOffer()
-      .then((offer) => peerConnection.setLocalDescription(offer))
-      .then(console.log("Set offer as local session description"))
-      .catch(console.log("Invalid local session description"));
+      .then((offer) => {
+        console.log("Set offer as local session description")
+        peerConnection.setLocalDescription(offer);
+      })
+      .catch(() => console.log("Invalid local session description"));
     
     await peer.init();
 
