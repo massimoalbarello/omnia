@@ -28,16 +28,23 @@ const servers = {
 };
 
 let peerConnection;
+let peer;
 
-peerPropertyWs.onmessage = (message) => {
-  peerConnection = new RTCPeerConnection(servers); 
-  offerPropertyWs = new WebSocket(offerPropertyWsUrl);
-  iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
+async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
-  const peer = new evrythng.Device(peerAPIkey);
 
+  await Promise.all([openOfferPropertyWS(), openIceCandidatePropertyWS()])
+    .then(() => console.log("Offer and ICE candidate WSs opened")); 
+
+  peer = new evrythng.Device(peerAPIkey);
+  await peer.init();
+  console.log(`Peer thng initialized`);
+
+  // initialize peer connection only once the promises have been resolved in order not to miss any events
+  peerConnection = new RTCPeerConnection(servers); 
   offerPropertyWs.onmessage = async (message) => {
     const offer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
     console.log("Received peer's offer");
@@ -45,32 +52,42 @@ peerPropertyWs.onmessage = (message) => {
     console.log("Set peer's offer as remote session description");
 
     // todo: start listening for remote candidates immediately, store them until remote description is set
+    let countReceivedIceCandidates = 0;
     iceCandidatePropertyWs.onmessage = (message) => {
-      const iceCandidate = new RTCIceCandidate(JSON.parse(JSON.parse(message.data)[0].value));
-      console.log("Received peer's ICE candidate");
-      // addIceCandidate must be called after setRemoteDescription
-      peerConnection.addIceCandidate(iceCandidate)
-        .then(() => console.log("Added peer's ICE candidate"))
-        .catch((e) => {
-          console.log("Failure during addIceCandidate(): " + e.name);
-        });
+      let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
+      if (candidateObject) {
+        const iceCandidate = new RTCIceCandidate(candidateObject);
+        // addIceCandidate must be called after setRemoteDescription
+        peerConnection.addIceCandidate(iceCandidate)
+        countReceivedIceCandidates++;
+      }
+      else {
+        console.log(`Received a total of ${countReceivedIceCandidates} ICE candidates from peer`);
+        countReceivedIceCandidates = 0;
+      }
     };
 
-    const answer = await peerConnection.createAnswer();
-    peerConnection.setLocalDescription(answer);
-    console.log("Set answer as local session description");
-
-    await peer.init();
+    peerConnection.createAnswer()
+      .then((answer) => {
+        peerConnection.setLocalDescription(answer);
+        console.log("Answer set as local session description");
+        peer.property('answer').update(JSON.stringify(answer));
+        console.log("Answer sent to peer");
+      })
+      .catch(() => console.log("Invalid local session description"));   
 
     // icecandidate events are fired as soon as the local description is set
+    let countLocalIceCandidates = 0;
     peerConnection.onicecandidate = (event) => {
-      console.log("New local ICE candidate");
+      if (event.candidate) {
+        countLocalIceCandidates++;
+      }
+      else {
+        console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
+        countLocalIceCandidates = 0;
+      }
       peer.property('icecandidate').update(JSON.stringify(event.candidate));
-      console.log("Local ICE candidate sent to peer");
     };
-
-    peer.property('answer').update(JSON.stringify(answer));
-    console.log("Answer sent to peer");
   };
   
   peerConnection.ontrack = (event) => {
@@ -98,6 +115,48 @@ peerPropertyWs.onmessage = (message) => {
   };
 };
 
+peerPropertyWs.onclose = () => {
+  console.log('peerPropertyWs closed');
+  peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+  peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
+  console.log('Reconnected to peer property WS');
+};
+
+function openOfferPropertyWS() {
+  return new Promise((resolve, reject) => {
+    offerPropertyWs = new WebSocket(offerPropertyWsUrl);
+    offerPropertyWs.onopen = () => {
+      console.log("Connected to offer property WS");
+      resolve();
+    };
+    offerPropertyWs.onerror = (error) => {
+      console.log("Error on offer property WS: " + error);
+      reject();
+    };
+    offerPropertyWs.onclose = () => {
+      console.log("Offer property WS closed");
+    };
+  });  
+}
+
+function openIceCandidatePropertyWS() {
+  return new Promise((resolve, reject) => {
+    iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
+    iceCandidatePropertyWs.onopen = () => {
+      console.log("Connected to ice candidate property WS");
+      resolve();
+    };
+    iceCandidatePropertyWs.onerror = (error) => {
+      console.log("Error on ice candidate property WS: " + error);
+      reject();
+    };
+    iceCandidatePropertyWs.onclose = () => {
+      console.log("Ice candidate property WS closed");
+    };
+  });
+}
+
+
 function openFullscreen() {
   if (video.requestFullscreen) {
     video.requestFullscreen();
@@ -113,31 +172,26 @@ function handleFirstPlay(event) {
   if (!hasPlayed) {
     console.log("Video has started playing");
     hasPlayed = true;
-    let vid = event.target;
-    vid.onplay = null;  // remove handler from video element
   }
 }
 
 function stopSharedVideo() {
-  if (peerConnection) {
-    peerConnection.ontrack = null;
-    peerConnection.onicecandidate = null;
-    peerConnection.onicegatheringstatechange = null;
-    peerConnection.oniceconnectionstatechange = null;
-
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(track => track.stop());
-    }
-
-    peerConnection.close();
-    peerConnection = null;
-    offerPropertyWs.close();
-    offerPropertyWs = null;
-    iceCandidatePropertyWs.close();
-    iceCandidatePropertyWs = null;
+  peerConnection.ontrack = null;
+  peerConnection.onicecandidate = null;
+  peerConnection.onicegatheringstatechange = null;
+  peerConnection.oniceconnectionstatechange = null;
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
   }
+  peerConnection.close();
+  peerConnection = null;
+  offerPropertyWs.close();
+  offerPropertyWs = null;
+  iceCandidatePropertyWs.close();
+  iceCandidatePropertyWs = null;
   video.removeAttribute("srcObject");
   video.hidden = true;
+  hasPlayed = false;
   receiverQRcode.hidden = false;
   console.log("Stopped receiving shared screen");
 }
