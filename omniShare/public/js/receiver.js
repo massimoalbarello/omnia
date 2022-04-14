@@ -31,6 +31,7 @@ let peerConnection;
 let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
+let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
 
 peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -69,6 +70,7 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   offerPropertyWs.onmessage = handleOfferPropertyWsOnMessageEvent;
   
   countReceivedIceCandidates = 0;
+  earlyIceCandidates = [];
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
 };
 
@@ -143,6 +145,10 @@ async function handleOfferPropertyWsOnMessageEvent(message) {
   await peerConnection.setRemoteDescription(offer);
   console.log("Set peer's offer as remote session description");
 
+  earlyIceCandidates.forEach((candidateObject) => {
+    addIceCandidate(candidateObject);
+  });
+
   peerConnection.createAnswer()
     .then((answer) => {
       peerConnection.setLocalDescription(answer);
@@ -155,24 +161,27 @@ async function handleOfferPropertyWsOnMessageEvent(message) {
 
 function handleIceCandidatePropertyWsOnMessageEvent(message) {
   let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
+  // addIceCandidate must be called after setRemoteDescription
+  if (peerConnection.remoteDescription) {
+    addIceCandidate(candidateObject);
+  }
+  else {
+    console.log("Remote description not set yet, storing ice candidate (null included)");
+    earlyIceCandidates.push(candidateObject);
+  }
+};
+
+function addIceCandidate(candidateObject) {
   if (candidateObject) {
     const iceCandidate = new RTCIceCandidate(candidateObject);
-    // addIceCandidate must be called after setRemoteDescription
-    if (peerConnection.remoteDescription) {
-      peerConnection.addIceCandidate(iceCandidate)
-      countReceivedIceCandidates++;
-    }
-    else {
-      console.log("Remote description not set yet, storing ice candidate");
-      // todo: start listening for remote candidates immediately, store them until remote description is set
-    }
+    peerConnection.addIceCandidate(iceCandidate);
+    countReceivedIceCandidates++;
   }
   else {
     console.log(`Received a total of ${countReceivedIceCandidates} ICE candidates from peer`);
     countReceivedIceCandidates = 0;
   }
-};
-
+}
 
 function openFullscreen() {
   if (video.requestFullscreen) {
@@ -197,15 +206,19 @@ function stopSharedVideo() {
   peerConnection.onicecandidate = null;
   peerConnection.onicegatheringstatechange = null;
   peerConnection.oniceconnectionstatechange = null;
+  peerConnection.close();
+  peerConnection = null;
+
   if (video.srcObject) {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
-  peerConnection.close();
-  peerConnection = null;
+  
   offerPropertyWs.close();
   offerPropertyWs = null;
+
   iceCandidatePropertyWs.close();
   iceCandidatePropertyWs = null;
+
   video.removeAttribute("srcObject");
   video.hidden = true;
   hasPlayed = false;

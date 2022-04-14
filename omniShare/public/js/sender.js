@@ -31,6 +31,7 @@ let peerConnection;
 let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
+let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
 
 peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -120,6 +121,7 @@ function screenShare(stream) {
   answerPropertyWs.onmessage = handleAnswerPropertyWsOnMessageEvent;
 
   countReceivedIceCandidates = 0;
+  earlyIceCandidates = [];
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
 };
 
@@ -158,46 +160,57 @@ function handleIceConnectionStateChangeEvent() {
   }
 }
 
-function handleAnswerPropertyWsOnMessageEvent(message) {
+async function handleAnswerPropertyWsOnMessageEvent(message) {
   const answer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
   console.log("Received answer from peer");
-  peerConnection.setRemoteDescription(answer);
+  await peerConnection.setRemoteDescription(answer);
   console.log("Set peer's answer as remote session description");
+
+  earlyIceCandidates.forEach((candidateObject) => {
+    addIceCandidate(candidateObject);
+  });
+
   stopSharingBtn.hidden = false;
 };
 
 function handleIceCandidatePropertyWsOnMessageEvent(message) {
   let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
+  // addIceCandidate must be called after setRemoteDescription
+  if (peerConnection.remoteDescription) {
+    addIceCandidate(candidateObject);
+  }
+  else {
+    console.log("Remote description not set yet, storing ice candidate (null included)");
+    earlyIceCandidates.push(candidateObject);
+  }
+};
+
+function addIceCandidate(candidateObject) {
   if (candidateObject) {
     const iceCandidate = new RTCIceCandidate(candidateObject);
-    // addIceCandidate must be called after setRemoteDescription
-    if (peerConnection.remoteDescription) {
-      peerConnection.addIceCandidate(iceCandidate)
-      countReceivedIceCandidates++;
-    }
-    else {
-      console.log("Remote description not set yet, storing ice candidate");
-      // todo: start listening for remote candidates immediately, store them until remote description is set
-    }
+    peerConnection.addIceCandidate(iceCandidate);
+    countReceivedIceCandidates++;
   }
   else {
     console.log(`Received a total of ${countReceivedIceCandidates} ICE candidates from peer`);
     countReceivedIceCandidates = 0;
   }
-};
+}
 
 function stopSharing() {
   peerConnection.onicecandidate = null;
   peerConnection.oniceconnectionstatechange = null;
   peerConnection.onicegatheringstatechange = null;
   peerConnection.onnegotiationneeded = null;
-
   peerConnection.close();
   peerConnection = null;
+
   answerPropertyWs.close();
   answerPropertyWs = null;
+
   iceCandidatePropertyWs.close();
   iceCandidatePropertyWs = null;
+  
   stopSharingBtn.hidden = true;
   senderQRcode.hidden = false;
   console.log("Stopped sharing");
