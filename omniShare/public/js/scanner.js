@@ -7,7 +7,7 @@ evrythng.use(ScanThng);
 const APPLICATION_API_KEY = 'UpkN2ravWdkyDbfdhmWn6HV1bLxz0LddQlGsMKGaEMtMiMUi1GesiRiPjaQquLsgfyes1vd2mSiQkwtY';
 const app = new evrythng.Application(APPLICATION_API_KEY);
 
-async function keyExchange() {
+app.init().then(async () => {
     const scanSender = await app.scanStream({
         filter: { method: '2d', type: 'qr_code' },
         containerId: 'stream_container',
@@ -27,6 +27,5 @@ async function keyExchange() {
 
     const receiver = new evrythng.Device(RECEIVER_API_KEY);
     receiver.init().then(() => receiver.property('peer').update(SENDER_API_KEY));
-}
+});
 
-keyExchange();
