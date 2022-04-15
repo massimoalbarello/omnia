@@ -5,16 +5,20 @@ evrythng.setup({
   apiVersion: 1
 });
 
+// own thng's API key
 const DEVICE_API_KEY = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";
 const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
 
+// WS used to received peer's API key from scanner
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
+// WS used to receive answer from peer
 const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
 let answerPropertyWs;
 
+//WS used to receive ICE candidates from peer
 const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
 let iceCandidatePropertyWs;
 
@@ -42,6 +46,7 @@ peerPropertyWs.onclose = () => {
   console.log('Reconnected to peer property WS');
 };
 
+// peer's API key received from scanner
 async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
@@ -104,9 +109,10 @@ function openIceCandidatePropertyWS() {
 function screenShare(stream) {
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
+  
   stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-  peerConnection.onnegotiationneeded = handleNegotiationNeededEvent();
+  peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
 
   // icecandidate events are fired as soon as the local description is set
   countLocalIceCandidates = 0;
@@ -114,6 +120,7 @@ function screenShare(stream) {
 
   peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
 
+  // called by the ICE layer when the ICE agent's process of collecting candidates changes state
   peerConnection.onicegatheringstatechange = (event) => {
     console.log(event);
   };
@@ -125,6 +132,7 @@ function screenShare(stream) {
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
 };
 
+// called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
 function handleNegotiationNeededEvent() {
   peerConnection.createOffer()
     .then((offer) => {
@@ -136,6 +144,7 @@ function handleNegotiationNeededEvent() {
     .catch(() => console.log("Invalid local session description"));
 };
 
+// called by the ICE layer once a new candidate is found
 function handleLocalIceCandidateEvent(event) {
   if (event.candidate) {
     countLocalIceCandidates++;
@@ -144,28 +153,32 @@ function handleLocalIceCandidateEvent(event) {
     console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
     countLocalIceCandidates = 0;
   }
+  // send candidate to peer
   peer.property('icecandidate').update(JSON.stringify(event.candidate));
 };
 
+// called by the ICE layer once the ICE connection state changes
 function handleIceConnectionStateChangeEvent() {
+  console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
   switch(peerConnection.iceConnectionState) {
     case "disconnected":
     case "closed":
     case "failed":
-      console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
       stopSharing();
       break;
     default:
-      console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+      break;
   }
 }
 
+// received answer from peer
 async function handleAnswerPropertyWsOnMessageEvent(message) {
   const answer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
   console.log("Received answer from peer");
   await peerConnection.setRemoteDescription(answer);
   console.log("Set peer's answer as remote session description");
 
+  // add ICE candidates received from peer before remote description was set
   earlyIceCandidates.forEach((candidateObject) => {
     addIceCandidate(candidateObject);
   });
@@ -173,6 +186,7 @@ async function handleAnswerPropertyWsOnMessageEvent(message) {
   stopSharingBtn.hidden = false;
 };
 
+// received ICE candidate from peer
 function handleIceCandidatePropertyWsOnMessageEvent(message) {
   let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
   // addIceCandidate must be called after setRemoteDescription
@@ -185,6 +199,7 @@ function handleIceCandidatePropertyWsOnMessageEvent(message) {
   }
 };
 
+// send peer's ICE candidate to local ICE layer
 function addIceCandidate(candidateObject) {
   if (candidateObject) {
     const iceCandidate = new RTCIceCandidate(candidateObject);

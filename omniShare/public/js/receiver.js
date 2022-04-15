@@ -5,16 +5,20 @@ evrythng.setup({
   apiVersion: 1
 });
 
+// own thng's API key
 const DEVICE_API_KEY = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
 const thng = new evrythng.Device(DEVICE_API_KEY);
 const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 
+// WS used to received peer's API key from scanner
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
+// WS used to receive offer from peer
 const offerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
 let offerPropertyWs;
 
+//WS used to receive ICE candidates from peer
 const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
 let iceCandidatePropertyWs;
 
@@ -42,6 +46,7 @@ peerPropertyWs.onclose = () => {
   console.log('Reconnected to peer property WS');
 };
 
+// peer's API key received from scanner
 async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
@@ -49,8 +54,12 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   await peer.init();
   console.log(`Peer thng initialized`);
 
+  receiverQRcode.hidden = true;
+
   await Promise.all([openOfferPropertyWS(), openIceCandidatePropertyWS()])
     .then(() => console.log("Offer and ICE candidate WSs opened")); 
+
+  offerPropertyWs.onmessage = handleOfferPropertyWsOnMessageEvent;
 
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
@@ -63,12 +72,11 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
 
   peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
 
+  // called by the ICE layer when the ICE agent's process of collecting candidates changes state
   peerConnection.onicegatheringstatechange = (event) => {
     console.log(event);
   };
 
-  offerPropertyWs.onmessage = handleOfferPropertyWsOnMessageEvent;
-  
   countReceivedIceCandidates = 0;
   earlyIceCandidates = [];
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
@@ -108,43 +116,14 @@ function openIceCandidatePropertyWS() {
   });
 }
 
-function handleLocalIceCandidateEvent(event) {
-  if (event.candidate) {
-    countLocalIceCandidates++;
-  }
-  else {
-    console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
-    countLocalIceCandidates = 0;
-  }
-  peer.property('icecandidate').update(JSON.stringify(event.candidate));
-};
-
-function handleTrackEvent(event) {
-  receiverQRcode.hidden = true;
-  video.hidden = false;
-  video.srcObject = event.streams[0];
-  console.log('Received remote stream');
-};
-
-function handleIceConnectionStateChangeEvent() {
-  switch(peerConnection.iceConnectionState) {
-    case "disconnected":
-    case "closed":
-    case "failed":
-      console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
-      stopSharedVideo();
-      break;
-    default:
-      console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
-  }
-}
-
+// received offer from peer
 async function handleOfferPropertyWsOnMessageEvent(message) {
   const offer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
   console.log("Received peer's offer");
   await peerConnection.setRemoteDescription(offer);
   console.log("Set peer's offer as remote session description");
 
+  // add ICE candidates received from peer before remote description was set
   earlyIceCandidates.forEach((candidateObject) => {
     addIceCandidate(candidateObject);
   });
@@ -159,6 +138,41 @@ async function handleOfferPropertyWsOnMessageEvent(message) {
     .catch(() => console.log("Invalid local session description"));   
 };
 
+// called by the ICE layer once a new candidate is found
+function handleLocalIceCandidateEvent(event) {
+  if (event.candidate) {
+    countLocalIceCandidates++;
+  }
+  else {
+    console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
+    countLocalIceCandidates = 0;
+  }
+  // send candidate to peer
+  peer.property('icecandidate').update(JSON.stringify(event.candidate));
+};
+
+// called by the local WebRTC layer once a new track is added to the peer connection
+function handleTrackEvent(event) {
+  video.hidden = false;
+  video.srcObject = event.streams[0];
+  console.log('Received remote stream');
+};
+
+// called by the ICE layer once the ICE connection state changes
+function handleIceConnectionStateChangeEvent() {
+  console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+  switch(peerConnection.iceConnectionState) {
+    case "disconnected":
+    case "closed":
+    case "failed":
+      stopSharedVideo();
+      break;
+    default:
+      break;
+  }
+}
+
+// received ICE candidate from peer
 function handleIceCandidatePropertyWsOnMessageEvent(message) {
   let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
   // addIceCandidate must be called after setRemoteDescription
@@ -171,6 +185,7 @@ function handleIceCandidatePropertyWsOnMessageEvent(message) {
   }
 };
 
+// send peer's ICE candidate to local ICE layer
 function addIceCandidate(candidateObject) {
   if (candidateObject) {
     const iceCandidate = new RTCIceCandidate(candidateObject);
