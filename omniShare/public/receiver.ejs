@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8">
+    <meta name="description" content="WebRTC screen share">
+    <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1, maximum-scale=1">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta id="theme-color" name="theme-color" content="#ffffff">
+
+    <base target="_blank">
+    <link rel="stylesheet" href="css/main.css"/>
+
+</head>
+
+<body>
+    <div id="thngId" hidden="true"><%= thngId %></div>
+    <div id="receiverQRcode"></div>
+    <video id="video" hidden="true" autoplay muted playsinline onplay="handleFirstPlay(event)"></video>
+    <button onclick="openFullscreen()">Open Fullscreen</button>
+    
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
+    <script src="./js/receiver.js" async></script>
+
+</body>
+</html>

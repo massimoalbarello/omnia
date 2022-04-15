@@ -1,25 +1,28 @@
 const senderQRcode = document.getElementById('senderQRcode');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
+const thngId = document.getElementById("thngId").innerText;
+console.log(`My thng ID: ${thngId}`);
+
+// generate QR code from thng ID
+new QRCode(senderQRcode, thngId);
 
 evrythng.setup({
   apiVersion: 1
 });
 
-// own thng's API key
-const DEVICE_API_KEY = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";
-const thng = new evrythng.Device(DEVICE_API_KEY);
-const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
+const TRUSTED_APPLICATION_API_KEY = "your_trusted_api_key";
+const omniaApp = new evrythng.TrustedApplication(TRUSTED_APPLICATION_API_KEY);
 
-// WS used to received peer's API key from scanner
-const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
+// WS used to received peer's thng ID from scanner
+const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${TRUSTED_APPLICATION_API_KEY}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
 // WS used to receive answer from peer
-const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${DEVICE_API_KEY}`;
+const answerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/answer?access_token=${TRUSTED_APPLICATION_API_KEY}`;
 let answerPropertyWs;
 
 //WS used to receive ICE candidates from peer
-const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
+const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${TRUSTED_APPLICATION_API_KEY}`;
 let iceCandidatePropertyWs;
 
 const servers = {
@@ -46,12 +49,11 @@ peerPropertyWs.onclose = () => {
   console.log('Reconnected to peer property WS');
 };
 
-// peer's API key received from scanner
+// peer's thng ID received from scanner
 async function handlePeerPropertyWsOnMessageEvent(message) {
-  const peerAPIkey = JSON.parse(message.data)[0].value;
-  console.log(`Received peer API key: ${peerAPIkey}`);
-  peer = new evrythng.Device(peerAPIkey);
-  await peer.init();
+  const peerThngId = JSON.parse(message.data)[0].value;
+  console.log(`Received peer's thng ID: ${peerThngId}`);
+  peer = omniaApp.thng(peerThngId);
   console.log(`Peer thng initialized`);
 
   senderQRcode.hidden = true;
