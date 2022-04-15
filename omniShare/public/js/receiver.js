@@ -50,14 +50,15 @@ peerPropertyWs.onclose = () => {
 async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
+  
+  await Promise.all([openOfferPropertyWS(), openIceCandidatePropertyWS()])
+    .then(() => console.log("Offer and ICE candidate WSs opened")); 
+
   peer = new evrythng.Device(peerAPIkey);
   await peer.init();
   console.log(`Peer thng initialized`);
 
   receiverQRcode.hidden = true;
-
-  await Promise.all([openOfferPropertyWS(), openIceCandidatePropertyWS()])
-    .then(() => console.log("Offer and ICE candidate WSs opened")); 
 
   offerPropertyWs.onmessage = handleOfferPropertyWsOnMessageEvent;
 
