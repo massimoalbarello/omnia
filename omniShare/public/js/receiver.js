@@ -14,13 +14,9 @@ const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
-// WS used to receive offer from peer
-const offerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/offer?access_token=${DEVICE_API_KEY}`;
-let offerPropertyWs;
-
-//WS used to receive ICE candidates from peer
-const iceCandidatePropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/icecandidate?access_token=${DEVICE_API_KEY}`;
-let iceCandidatePropertyWs;
+//WS used to receive remote SDP and ICE candidates from peer
+const signalingChannelUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${DEVICE_API_KEY}`;
+let signalingChannelWs;
 
 const servers = {
   iceServers: [
@@ -36,6 +32,11 @@ let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
 let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
+let makingOffer;
+let ignoreOffer;
+let polite = true;
+
+peerPropertyWs.onopen = () => console.log("Peer property WS opened");
 
 peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -51,8 +52,7 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
   
-  await Promise.all([openOfferPropertyWS(), openIceCandidatePropertyWS()])
-    .then(() => console.log("Offer and ICE candidate WSs opened")); 
+  await openSignalingChannelWs();
 
   peer = new evrythng.Device(peerAPIkey);
   await peer.init();
@@ -60,10 +60,11 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
 
   receiverQRcode.hidden = true;
 
-  offerPropertyWs.onmessage = handleOfferPropertyWsOnMessageEvent;
-
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
+
+  makingOffer = false;
+  peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
 
   // icecandidate events are fired as soon as the local description is set
   countLocalIceCandidates = 0;
@@ -73,75 +74,47 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
 
   peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
 
-  // called by the ICE layer when the ICE agent's process of collecting candidates changes state
-  peerConnection.onicegatheringstatechange = (event) => {
-    console.log(event);
-  };
-
   countReceivedIceCandidates = 0;
   earlyIceCandidates = [];
-  iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
+  ignoreOffer = false;
+  signalingChannelWs.onmessage = handleSignalingChannelOnMessageEvent;
 };
 
-function openOfferPropertyWS() {
+
+function openSignalingChannelWs() {
   return new Promise((resolve, reject) => {
-    offerPropertyWs = new WebSocket(offerPropertyWsUrl);
-    offerPropertyWs.onopen = () => {
-      console.log("Connected to offer property WS");
+    signalingChannelWs = new WebSocket(signalingChannelUrl);
+    signalingChannelWs.onopen = () => {
+      console.log("Connected to signaling channel WS");
       resolve();
     };
-    offerPropertyWs.onerror = (error) => {
-      console.log("Error on offer property WS: " + error);
+    signalingChannelWs.onerror = (error) => {
+      console.log("Error on signaling channel WS: " + error);
       reject();
-    };
-    offerPropertyWs.onclose = () => {
-      console.log("Offer property WS closed");
+    }; 
+    signalingChannelWs.onclose = () => {
+      console.log("Signaling channel WS closed");
     };
   });  
 }
 
-function openIceCandidatePropertyWS() {
-  return new Promise((resolve, reject) => {
-    iceCandidatePropertyWs = new WebSocket(iceCandidatePropertyWsUrl);
-    iceCandidatePropertyWs.onopen = () => {
-      console.log("Connected to ice candidate property WS");
-      resolve();
-    };
-    iceCandidatePropertyWs.onerror = (error) => {
-      console.log("Error on ice candidate property WS: " + error);
-      reject();
-    };
-    iceCandidatePropertyWs.onclose = () => {
-      console.log("Ice candidate property WS closed");
-    };
-  });
-}
-
-// received offer from peer
-async function handleOfferPropertyWsOnMessageEvent(message) {
-  const offer = new RTCSessionDescription(JSON.parse(JSON.parse(message.data)[0].value));
-  console.log("Received peer's offer");
-  await peerConnection.setRemoteDescription(offer);
-  console.log("Set peer's offer as remote session description");
-
-  // add ICE candidates received from peer before remote description was set
-  earlyIceCandidates.forEach((candidateObject) => {
-    addIceCandidate(candidateObject);
-  });
-
-  peerConnection.createAnswer()
-    .then((answer) => {
-      peerConnection.setLocalDescription(answer);
-      console.log("Answer set as local session description");
-      peer.property('answer').update(JSON.stringify(answer));
-      console.log("Answer sent to peer");
-    })
-    .catch(() => console.log("Invalid local session description"));   
+// called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
+async function handleNegotiationNeededEvent() {
+  try {
+    makingOffer = true;
+    await peerConnection.setLocalDescription();
+    peer.property('signalingchannel').update(JSON.stringify({ description: peerConnection.localDescription }));
+    console.log("SDP sent to peer");
+  } catch(err) {
+    console.error(err);
+  } finally {
+    makingOffer = false;
+  }
 };
 
 // called by the ICE layer once a new candidate is found
-function handleLocalIceCandidateEvent(event) {
-  if (event.candidate) {
+function handleLocalIceCandidateEvent({candidate}) {
+  if (candidate) {
     countLocalIceCandidates++;
   }
   else {
@@ -149,7 +122,7 @@ function handleLocalIceCandidateEvent(event) {
     countLocalIceCandidates = 0;
   }
   // send candidate to peer
-  peer.property('icecandidate').update(JSON.stringify(event.candidate));
+  peer.property('signalingchannel').update(JSON.stringify({candidate}));
 };
 
 // called by the local WebRTC layer once a new track is added to the peer connection
@@ -173,28 +146,60 @@ function handleIceConnectionStateChangeEvent() {
   }
 }
 
-// received ICE candidate from peer
-function handleIceCandidatePropertyWsOnMessageEvent(message) {
-  let candidateObject = JSON.parse(JSON.parse(message.data)[0].value);
-  // addIceCandidate must be called after setRemoteDescription
-  if (peerConnection.remoteDescription) {
-    addIceCandidate(candidateObject);
+async function handleSignalingChannelOnMessageEvent(message) {
+  let { description, candidate: candidateObject } = JSON.parse(JSON.parse(message.data)[0].value);
+  try {
+    if (description) {
+      const offerCollision = (description.type == "offer") &&
+                             (makingOffer || peerConnection.signalingState != "stable");
+
+      ignoreOffer = !polite && offerCollision;
+      if (ignoreOffer) {
+        console.log("Ignoring offer")
+        return;
+      }
+
+      await peerConnection.setRemoteDescription(description); 
+      // add ICE candidates received from peer before remote description was set
+      earlyIceCandidates.forEach((candidateObject) => {
+        addIceCandidate(candidateObject);
+      });
+
+      if (description.type == "offer") {
+        console.log("Received offer");
+        await peerConnection.setLocalDescription();
+        peer.property('signalingchannel').update(JSON.stringify({ description: peerConnection.localDescription }));
+        console.log("Answer sent to peer");
+      }
+      else {
+        console.log("Received answer");
+      }
+    }
+    else {
+      // addIceCandidate must be called after setRemoteDescription
+      if (peerConnection.remoteDescription) {
+        addIceCandidate(candidateObject);
+      }
+      else {
+        console.log("Remote description not set yet, storing ice candidate (null included)");
+        earlyIceCandidates.push(candidateObject);
+      }
+    }
+  } catch(err) {
+    console.error(err);
   }
-  else {
-    console.log("Remote description not set yet, storing ice candidate (null included)");
-    earlyIceCandidates.push(candidateObject);
-  }
-};
+}
 
 // send peer's ICE candidate to local ICE layer
 function addIceCandidate(candidateObject) {
   if (candidateObject) {
     const iceCandidate = new RTCIceCandidate(candidateObject);
     peerConnection.addIceCandidate(iceCandidate);
+    console.log("Remote candidate passed to ICE layer")
     countReceivedIceCandidates++;
   }
   else {
-    console.log(`Received a total of ${countReceivedIceCandidates} ICE candidates from peer`);
+    console.log(`Received a total of ${countReceivedIceCandidates} valid ICE candidates from peer`);
     countReceivedIceCandidates = 0;
   }
 }
@@ -229,11 +234,8 @@ function stopSharedVideo() {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
   
-  offerPropertyWs.close();
-  offerPropertyWs = null;
-
-  iceCandidatePropertyWs.close();
-  iceCandidatePropertyWs = null;
+  signalingChannelWs.close();
+  signalingChannelWs = null;
 
   video.removeAttribute("srcObject");
   video.hidden = true;
