@@ -1,22 +1,15 @@
 const video = document.getElementById('video');
 const receiverQRcode = document.getElementById('receiverQRcode');
 
-evrythng.setup({
-  apiVersion: 1
-});
-
 // own thng's API key
-const DEVICE_API_KEY = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
-const thng = new evrythng.Device(DEVICE_API_KEY);
+const deviceApiKey = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
 const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 
 // WS used to received peer's API key from scanner
-const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${DEVICE_API_KEY}`;
+const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${deviceApiKey}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
-//WS used to receive remote SDP and ICE candidates from peer
-const signalingChannelUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${DEVICE_API_KEY}`;
-let signalingChannelWs;
+const signaling = new SignalingChannel(thngId, deviceApiKey);
 
 const servers = {
   iceServers: [
@@ -28,7 +21,6 @@ const servers = {
 };
 
 let peerConnection;
-let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
 let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
@@ -52,13 +44,9 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
   
-  await openSignalingChannelWs();
-
-  peer = new evrythng.Device(peerAPIkey);
-  await peer.init();
-  console.log(`Peer thng initialized`);
-
   receiverQRcode.hidden = true;
+
+  await signaling.setupChannel(handleSignalingChannelOnMessageEvent, peerAPIkey); 
 
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
@@ -77,33 +65,14 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   countReceivedIceCandidates = 0;
   earlyIceCandidates = [];
   ignoreOffer = false;
-  signalingChannelWs.onmessage = handleSignalingChannelOnMessageEvent;
 };
-
-
-function openSignalingChannelWs() {
-  return new Promise((resolve, reject) => {
-    signalingChannelWs = new WebSocket(signalingChannelUrl);
-    signalingChannelWs.onopen = () => {
-      console.log("Connected to signaling channel WS");
-      resolve();
-    };
-    signalingChannelWs.onerror = (error) => {
-      console.log("Error on signaling channel WS: " + error);
-      reject();
-    }; 
-    signalingChannelWs.onclose = () => {
-      console.log("Signaling channel WS closed");
-    };
-  });  
-}
 
 // called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
 async function handleNegotiationNeededEvent() {
   try {
     makingOffer = true;
     await peerConnection.setLocalDescription();
-    peer.property('signalingchannel').update(JSON.stringify({ description: peerConnection.localDescription }));
+    signaling.sendToPeer({ description: peerConnection.localDescription });
     console.log("SDP sent to peer");
   } catch(err) {
     console.error(err);
@@ -122,7 +91,7 @@ function handleLocalIceCandidateEvent({candidate}) {
     countLocalIceCandidates = 0;
   }
   // send candidate to peer
-  peer.property('signalingchannel').update(JSON.stringify({candidate}));
+  signaling.sendToPeer({candidate});
 };
 
 // called by the local WebRTC layer once a new track is added to the peer connection
@@ -146,8 +115,7 @@ function handleIceConnectionStateChangeEvent() {
   }
 }
 
-async function handleSignalingChannelOnMessageEvent(message) {
-  let { description, candidate: candidateObject } = JSON.parse(JSON.parse(message.data)[0].value);
+async function handleSignalingChannelOnMessageEvent(description, candidateObject) {
   try {
     if (description) {
       const offerCollision = (description.type == "offer") &&
@@ -168,7 +136,7 @@ async function handleSignalingChannelOnMessageEvent(message) {
       if (description.type == "offer") {
         console.log("Received offer");
         await peerConnection.setLocalDescription();
-        peer.property('signalingchannel').update(JSON.stringify({ description: peerConnection.localDescription }));
+        signaling.sendToPeer({ description: peerConnection.localDescription });
         console.log("Answer sent to peer");
       }
       else {
@@ -234,8 +202,7 @@ function stopSharedVideo() {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
   
-  signalingChannelWs.close();
-  signalingChannelWs = null;
+  signaling.closeChannel();
 
   video.removeAttribute("srcObject");
   video.hidden = true;
