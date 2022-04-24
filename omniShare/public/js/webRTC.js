@@ -5,6 +5,7 @@ let earlyIceCandidates = [];   // store peer's ICE candidates received before re
 let makingOffer = false;
 let ignoreOffer = false;
 let handleConnectionError;
+let isPolite;
 
 function openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder) {
         
@@ -42,7 +43,7 @@ function openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, pee
     countReceivedIceCandidates = 0;
     earlyIceCandidates = [];   // store peer's ICE candidates received before remote description is set
     ignoreOffer = false;
-    polite = polite;
+    isPolite = polite;
 
     handleConnectionError = connectionErrorHanlder;
 }
@@ -53,7 +54,7 @@ async function handleSignalingChannelOnMessageEvent(description, candidateObject
         const offerCollision = (description.type == "offer") &&
                                 (makingOffer || peerConnection.signalingState != "stable");
     
-        ignoreOffer = !polite && offerCollision;
+        ignoreOffer = !isPolite && offerCollision;
         if (ignoreOffer) {
             console.log("Ignoring offer")
             return;
