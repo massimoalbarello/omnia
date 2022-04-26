@@ -1,5 +1,9 @@
 const senderQRcode = document.getElementById('senderQRcode');
-const stopSharingBtn = document.getElementById('stopSharingBtn');
+const connectButton = document.getElementById('connectButton');
+const disconnectButton = document.getElementById('disconnectButton');
+const sendButton = document.getElementById('sendButton');
+const messageBox = document.getElementById('messageBox');
+const messageInput = document.getElementById('message');
 
 evrythng.setup({
   apiVersion: 1
@@ -36,6 +40,7 @@ let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
 let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
+let sendChannel;
 
 peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -59,17 +64,10 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
   await Promise.all([openAnswerPropertyWS(), openIceCandidatePropertyWS()])
     .then(() => console.log("Answer and ICE candidate WSs opened")); 
   
-  console.log('Requesting local stream');
-  const options = {audio: true, video: true};
-  navigator.mediaDevices
-    .getDisplayMedia(options)
-    .then((stream) => {
-      screenShare(stream)
-    })
-    .catch(function(e) {
-      alert('getUserMedia() failed');
-      console.log('getUserMedia() error: ', e);
-    });
+  connectButton.hidden = false;
+  connectButton.addEventListener('click', connectPeer, false);
+  disconnectButton.addEventListener('click', disconnectPeer, false);
+  sendButton.addEventListener('click', sendMessage, false);
 };
 
 function openAnswerPropertyWS() {
@@ -106,11 +104,14 @@ function openIceCandidatePropertyWS() {
   });
 }
 
-function screenShare(stream) {
+function connectPeer() {
+  console.log("Connecting peers");
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
   
-  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+  sendChannel = peerConnection.createDataChannel("sendChannel");
+  sendChannel.onopen = handleSendChannelStatusChange;
+  sendChannel.onclose = handleSendChannelStatusChange;
 
   peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
 
@@ -132,12 +133,25 @@ function screenShare(stream) {
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
 };
 
+function handleSendChannelStatusChange(event) {
+  if (sendChannel) {
+    let state = sendChannel.readyState;
+    console.log("Send channel state changed: " + state);
+    if (state === "open") {
+      connectButton.hidden = true;
+      disconnectButton.hidden = false;
+      messageBox.hidden = false;
+      messageInput.focus();
+    }
+  }
+}
+
 // called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
 function handleNegotiationNeededEvent() {
   peerConnection.createOffer()
     .then((offer) => {
       peerConnection.setLocalDescription(offer);
-      console.log("Offer set as local session description")
+      console.log("Offer set as local session description");
       peer.property('offer').update(JSON.stringify(offer));
       console.log("Offer sent to peer");
     })
@@ -164,7 +178,7 @@ function handleIceConnectionStateChangeEvent() {
     case "disconnected":
     case "closed":
     case "failed":
-      stopSharing();
+      disconnectPeer();
       break;
     default:
       break;
@@ -182,8 +196,6 @@ async function handleAnswerPropertyWsOnMessageEvent(message) {
   earlyIceCandidates.forEach((candidateObject) => {
     addIceCandidate(candidateObject);
   });
-
-  stopSharingBtn.hidden = false;
 };
 
 // received ICE candidate from peer
@@ -212,7 +224,10 @@ function addIceCandidate(candidateObject) {
   }
 }
 
-function stopSharing() {
+function disconnectPeer() {  
+  sendChannel.close();
+  sendChannel = null;
+  
   peerConnection.onicecandidate = null;
   peerConnection.oniceconnectionstatechange = null;
   peerConnection.onicegatheringstatechange = null;
@@ -226,7 +241,19 @@ function stopSharing() {
   iceCandidatePropertyWs.close();
   iceCandidatePropertyWs = null;
   
-  stopSharingBtn.hidden = true;
+  messageInput.value = "";
+
   senderQRcode.hidden = false;
-  console.log("Stopped sharing");
+  connectButton.hidden = true;
+  disconnectButton.hidden = true;
+  messageBox.hidden = true;
+
+  console.log("Local peer disconnected");
+}
+
+function sendMessage() {
+  let message = messageInput.value;
+  sendChannel.send(message);  
+  messageInput.value = "";
+  messageInput.focus();
 }

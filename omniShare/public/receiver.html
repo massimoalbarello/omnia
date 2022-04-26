@@ -14,12 +14,13 @@
 </head>
 
 <body>
+    <h1>Data channel v0.1</h1>
     <img id="receiverQRcode" src="./figures/receiverQRcode.PNG" alt="Receiver QR code">
-    
-    <video id="video" hidden="true" autoplay muted playsinline onplay="handleFirstPlay(event)"></video>
-    
-    <button onclick="openFullscreen()">Open Fullscreen</button>
-    
+
+    <div class="messagebox" id="receivebox" hidden>
+        <p>Messages received:</p>
+    </div>
+      
     <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
     <script src="js/receiver.js" async></script>
 

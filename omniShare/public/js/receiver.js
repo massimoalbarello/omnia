@@ -1,5 +1,5 @@
-const video = document.getElementById('video');
 const receiverQRcode = document.getElementById('receiverQRcode');
+const receiveBox = document.getElementById('receivebox');
 
 evrythng.setup({
   apiVersion: 1
@@ -36,6 +36,8 @@ let peer;
 let countLocalIceCandidates;
 let countReceivedIceCandidates;
 let earlyIceCandidates; // store peer's ICE candidates received before remote description is set
+let receiveChannel;
+
 
 peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -64,12 +66,11 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
 
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
+  peerConnection.ondatachannel = receiveChannelCallback;
 
   // icecandidate events are fired as soon as the local description is set
   countLocalIceCandidates = 0;
   peerConnection.onicecandidate = handleLocalIceCandidateEvent;
-
-  peerConnection.ontrack = handleTrackEvent;
 
   peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
 
@@ -139,6 +140,39 @@ async function handleOfferPropertyWsOnMessageEvent(message) {
     .catch(() => console.log("Invalid local session description"));   
 };
 
+function receiveChannelCallback(event) {
+  receiveChannel = event.channel;
+  receiveChannel.onmessage = handleReceiveMessage;
+  receiveChannel.onopen = handleReceiveChannelStatusChange;
+  receiveChannel.onclose = handleReceiveChannelStatusChange;
+}
+
+// Handle onmessage events for the receiving channel.
+// These are the data messages sent by the sending channel.
+
+function handleReceiveMessage(event) {
+  let el = document.createElement("p");
+  let txtNode = document.createTextNode(event.data);
+  
+  el.appendChild(txtNode);
+  receiveBox.appendChild(el);
+}
+
+// Handle status changes on the receiver's channel.
+
+function handleReceiveChannelStatusChange(event) {
+  if (receiveChannel) {
+    let state = receiveChannel.readyState;
+    console.log("Receive channel status changed: " + state);
+    if (state === "open") {
+      receiveBox.hidden = false;
+    }
+  }
+  
+  // Here you would do stuff that needs to be done
+  // when the channel's status changes.
+}
+
 // called by the ICE layer once a new candidate is found
 function handleLocalIceCandidateEvent(event) {
   if (event.candidate) {
@@ -152,13 +186,6 @@ function handleLocalIceCandidateEvent(event) {
   peer.property('icecandidate').update(JSON.stringify(event.candidate));
 };
 
-// called by the local WebRTC layer once a new track is added to the peer connection
-function handleTrackEvent(event) {
-  video.hidden = false;
-  video.srcObject = event.streams[0];
-  console.log('Received remote stream');
-};
-
 // called by the ICE layer once the ICE connection state changes
 function handleIceConnectionStateChangeEvent() {
   console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
@@ -166,7 +193,7 @@ function handleIceConnectionStateChangeEvent() {
     case "disconnected":
     case "closed":
     case "failed":
-      stopSharedVideo();
+      disconnectPeer();
       break;
     default:
       break;
@@ -199,35 +226,17 @@ function addIceCandidate(candidateObject) {
   }
 }
 
-function openFullscreen() {
-  if (video.requestFullscreen) {
-    video.requestFullscreen();
-  } else if (video.webkitRequestFullscreen) { /* Safari */
-    video.webkitRequestFullscreen();
-  } else if (video.msRequestFullscreen) { /* IE11 */
-    video.msRequestFullscreen();
-  };
-}
-
-let hasPlayed = false;
-function handleFirstPlay() {
-  if (!hasPlayed) {
-    console.log("Video has started playing");
-    hasPlayed = true;
+function disconnectPeer() {
+  if (receiveChannel) {
+    receiveChannel.close();
+    receiveChannel = null;
   }
-}
 
-function stopSharedVideo() {
-  peerConnection.ontrack = null;
   peerConnection.onicecandidate = null;
   peerConnection.onicegatheringstatechange = null;
   peerConnection.oniceconnectionstatechange = null;
   peerConnection.close();
   peerConnection = null;
-
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(track => track.stop());
-  }
   
   offerPropertyWs.close();
   offerPropertyWs = null;
@@ -235,9 +244,7 @@ function stopSharedVideo() {
   iceCandidatePropertyWs.close();
   iceCandidatePropertyWs = null;
 
-  video.removeAttribute("srcObject");
-  video.hidden = true;
-  hasPlayed = false;
   receiverQRcode.hidden = false;
-  console.log("Stopped receiving shared screen");
+  receiveBox.hidden = true;
+  console.log("Local peer disconnected");
 }
