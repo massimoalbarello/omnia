@@ -27,8 +27,7 @@ const servers = {
     {
       urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
     },
-  ],
-  iceCandidatePoolSize: 10,
+  ]
 };
 
 let peerConnection;
@@ -130,8 +129,8 @@ async function handleOfferPropertyWsOnMessageEvent(message) {
   });
 
   peerConnection.createAnswer()
-    .then((answer) => {
-      peerConnection.setLocalDescription(answer);
+    .then(async (answer) => {
+      await peerConnection.setLocalDescription(answer);
       console.log("Answer set as local session description");
       peer.property('answer').update(JSON.stringify(answer));
       console.log("Answer sent to peer");
@@ -154,8 +153,11 @@ function handleLocalIceCandidateEvent(event) {
 
 // called by the local WebRTC layer once a new track is added to the peer connection
 function handleTrackEvent(event) {
+  video.srcObject = new MediaStream();
   video.hidden = false;
-  video.srcObject = event.streams[0];
+  event.streams[0].getTracks().forEach((track) => {
+    video.srcObject.addTrack(track);
+  });
   console.log('Received remote stream');
 };
 

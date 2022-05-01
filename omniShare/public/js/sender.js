@@ -27,8 +27,7 @@ const servers = {
     {
       urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
     },
-  ],
-  iceCandidatePoolSize: 10,
+  ]
 };
 
 let peerConnection;
@@ -67,8 +66,8 @@ async function handlePeerPropertyWsOnMessageEvent(message) {
       screenShare(stream)
     })
     .catch(function(e) {
-      alert('getUserMedia() failed');
-      console.log('getUserMedia() error: ', e);
+      alert('getDisplayMedia() failed');
+      console.log('getDisplayMedia() error: ', e);
     });
 };
 
@@ -109,8 +108,6 @@ function openIceCandidatePropertyWS() {
 function screenShare(stream) {
   // initialize peer connection only once the promises have been resolved in order not to miss any events
   peerConnection = new RTCPeerConnection(servers); 
-  
-  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
   peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
 
@@ -130,13 +127,15 @@ function screenShare(stream) {
   countReceivedIceCandidates = 0;
   earlyIceCandidates = [];
   iceCandidatePropertyWs.onmessage = handleIceCandidatePropertyWsOnMessageEvent;
+
+  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 };
 
 // called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
 function handleNegotiationNeededEvent() {
   peerConnection.createOffer()
-    .then((offer) => {
-      peerConnection.setLocalDescription(offer);
+    .then(async (offer) => {
+      await peerConnection.setLocalDescription(offer);
       console.log("Offer set as local session description")
       peer.property('offer').update(JSON.stringify(offer));
       console.log("Offer sent to peer");
