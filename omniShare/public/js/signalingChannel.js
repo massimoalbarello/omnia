@@ -1,7 +1,7 @@
 let remoteEnd;
 let localEnd;
 
-function openChannel(thngId, deviceApiKey, peerAPIkey, callback) {
+async function openChannel(thngId, deviceApiKey, peerAPIkey, handleSignalingChannelOnMessageEvent) {
     //WS used to receive remote SDP and ICE candidates from peer
     const localEndUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${deviceApiKey}`;
     
@@ -10,28 +10,35 @@ function openChannel(thngId, deviceApiKey, peerAPIkey, callback) {
     });
 
     remoteEnd = new evrythng.Device(peerAPIkey);
+    await remoteEnd.init();
     console.log(`Remote end of the signaling channel opened`);
     
+    await openLocalEndWS(localEndUrl, handleSignalingChannelOnMessageEvent);
+}
+
+function openLocalEndWS(localEndUrl, handleSignalingChannelOnMessageEvent) {
     localEnd = new WebSocket(localEndUrl);
-    localEnd.onopen = () => {
-        console.log("Local end of the signaling channel opened");
-    };
-    localEnd.onerror = (error) => {
-        console.log("Error on the local end of the channel: " + error);
-    }; 
     localEnd.onclose = () => {
         console.log("Local end of the signaling channel closed");
     };
     localEnd.onmessage = (message) => {
         const { description, candidate: candidateObject } = JSON.parse(JSON.parse(message.data)[0].value);
-        callback(description, candidateObject);
+        handleSignalingChannelOnMessageEvent(description, candidateObject);
     };
+    return new Promise((resolve, reject) => { 
+        localEnd.onopen = () => {
+            console.log("Local end of the signaling channel opened");
+            resolve();
+        };
+        localEnd.onerror = (error) => {
+            console.log("Error on the local end of the channel: " + error);
+            reject();
+        };
+    });
 }
 
 function sendToPeer(message) {
-    remoteEnd.init().then(() => {
-        remoteEnd.property('signalingchannel').update(JSON.stringify(message));
-    });
+    remoteEnd.property('signalingchannel').update(JSON.stringify(message));
 }
 
 function closeChannel() {

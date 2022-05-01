@@ -9,15 +9,6 @@ const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${deviceApiKey}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
-const servers = {
-  iceServers: [
-    {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
-  ],
-  iceCandidatePoolSize: 10,
-};
-
 const polite = false;
 const streamer = true;
 
@@ -38,7 +29,7 @@ function handlePeerPropertyWsOnMessageEvent(message) {
   console.log(`Received peer API key: ${peerAPIkey}`);
 
   senderQRcode.hidden = true;
-  openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, peerAPIkey, null, connectionErrorHanlder);
+  openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, null, connectionErrorHanlder);
   stopSharingBtn.hidden = false;
 };
 

@@ -1,3 +1,11 @@
+const servers = {
+    iceServers: [
+      {
+        urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+      },
+    ]
+};
+
 let peerConnection;
 let countLocalIceCandidates = 0;
 let countReceivedIceCandidates = 0;
@@ -7,12 +15,29 @@ let ignoreOffer = false;
 let handleConnectionError;
 let isPolite;
 
-function openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder) {
+async function openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder) {
         
-    openChannel(thngId, deviceApiKey, peerAPIkey, handleSignalingChannelOnMessageEvent);
-    
+    await openChannel(thngId, deviceApiKey, peerAPIkey, signalingChannelOnMessageEventHandler);
+    console.log("Channel opened");
+
     // initialize peer connection only once the signaling channel is setup in order not to miss any messages
     peerConnection = new RTCPeerConnection(servers); 
+
+    makingOffer = false;
+    peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
+
+    // icecandidate events are fired as soon as the local description is set
+    countLocalIceCandidates = 0;
+    peerConnection.onicecandidate = handleLocalIceCandidateEvent;
+
+    peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
+
+    countReceivedIceCandidates = 0;
+    earlyIceCandidates = [];   // store peer's ICE candidates received before remote description is set
+    ignoreOffer = false;
+    isPolite = polite;
+
+    handleConnectionError = connectionErrorHanlder;
 
     if (streamer) {
         console.log('Requesting local stream');
@@ -23,68 +48,52 @@ function openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, pee
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
             })
             .catch(function(e) {
-            alert('getUserMedia() failed');
-            console.log('getUserMedia() error: ', e);
+            alert('getDisplayMedia() failed');
+            console.log('getDisplayMedia() error: ', e);
             });
     }
     else {
         peerConnection.ontrack = handleTrackEvent;
     }
-
-    makingOffer = false;
-    peerConnection.onnegotiationneeded = () => handleNegotiationNeededEvent(this);
-
-    // icecandidate events are fired as soon as the local description is set
-    countLocalIceCandidates = 0;
-    peerConnection.onicecandidate = (candidate) => handleLocalIceCandidateEvent(candidate);
-
-    peerConnection.oniceconnectionstatechange = () => handleIceConnectionStateChangeEvent(this);
-
-    countReceivedIceCandidates = 0;
-    earlyIceCandidates = [];   // store peer's ICE candidates received before remote description is set
-    ignoreOffer = false;
-    isPolite = polite;
-
-    handleConnectionError = connectionErrorHanlder;
 }
 
-async function handleSignalingChannelOnMessageEvent(description, candidateObject) {
+async function signalingChannelOnMessageEventHandler(description, candidateObject) {
     try {
         if (description) {
-        const offerCollision = (description.type == "offer") &&
-                                (makingOffer || peerConnection.signalingState != "stable");
-    
-        ignoreOffer = !isPolite && offerCollision;
-        if (ignoreOffer) {
-            console.log("Ignoring offer")
-            return;
-        }
-    
-        await peerConnection.setRemoteDescription(description); 
-        // add ICE candidates received from peer before remote description was set
-        earlyIceCandidates.forEach((candidateObject) => {
-            addIceCandidate(candidateObject);
-        });
-    
-        if (description.type == "offer") {
-            console.log("Received offer");
-            await peerConnection.setLocalDescription();
-            sendToPeer({ description: peerConnection.localDescription });
-            console.log("Answer sent to peer");
-        }
-        else {
-            console.log("Received answer");
-        }
-        }
-        else {
-        // addIceCandidate must be called after setRemoteDescription
-        if (peerConnection.remoteDescription) {
-            addIceCandidate(candidateObject);
+            const offerCollision = (description.type == "offer") &&
+                                    (makingOffer || peerConnection.signalingState != "stable");
+        
+            ignoreOffer = !isPolite && offerCollision;
+            if (ignoreOffer) {
+                console.log("Ignoring offer")
+                return;
+            }
+        
+            await peerConnection.setRemoteDescription(description);
+            // add ICE candidates received from peer before remote description was set
+            earlyIceCandidates.forEach((candidateObject) => {
+                addIceCandidate(candidateObject);
+            });
+        
+            if (description.type == "offer") {
+                console.log("Received offer");
+                await peerConnection.setLocalDescription();
+                sendToPeer({ description: peerConnection.localDescription });
+                console.log("Answer sent to peer");
+            }
+            else {
+                console.log("Received answer");
+            }
         }
         else {
-            console.log("Remote description not set yet, storing ice candidate (null included)");
-            earlyIceCandidates.push(candidateObject);
-        }
+            // addIceCandidate must be called after setRemoteDescription
+            if (peerConnection.remoteDescription) {
+                addIceCandidate(candidateObject);
+            }
+            else {
+                console.log("Remote description not set yet, storing ice candidate (null included)");
+                earlyIceCandidates.push(candidateObject);
+            }
         }
     } catch(err) {
         console.error(err);

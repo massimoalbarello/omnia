@@ -9,15 +9,6 @@ const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
 const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${deviceApiKey}`;
 let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
-const servers = {
-  iceServers: [
-    {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
-  ],
-  iceCandidatePoolSize: 10,
-};
-
 const polite = true;
 const streamer = false;
 
@@ -38,13 +29,16 @@ function handlePeerPropertyWsOnMessageEvent(message) {
   console.log(`Received peer API key: ${peerAPIkey}`);
   
   receiverQRcode.hidden = true;
-  openPeerConnection(servers, thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder);
+  openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder);
 };
- 
+
 // called by the local WebRTC layer once a new track is added to the peer connection
 function handleTrackEvent(event) {
+  video.srcObject = new MediaStream();
   video.hidden = false;
-  video.srcObject = event.streams[0];
+  event.streams[0].getTracks().forEach((track) => {
+    video.srcObject.addTrack(track);
+  });
   console.log('Received remote stream');
 };
 
