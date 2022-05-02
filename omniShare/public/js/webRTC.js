@@ -32,6 +32,8 @@ async function openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAP
 
     peerConnection.oniceconnectionstatechange = handleIceConnectionStateChangeEvent;
 
+    peerConnection.onicegatheringstatechange = handleIceGatheringStateChangeEvent;
+
     countReceivedIceCandidates = 0;
     earlyIceCandidates = [];   // store peer's ICE candidates received before remote description is set
     ignoreOffer = false;
@@ -78,6 +80,7 @@ async function signalingChannelOnMessageEventHandler(description, candidateObjec
             if (description.type == "offer") {
                 console.log("Received offer");
                 await peerConnection.setLocalDescription();
+                console.log(peerConnection.localDescription);
                 sendToPeer({ description: peerConnection.localDescription });
                 console.log("Answer sent to peer");
             }
@@ -104,6 +107,7 @@ async function signalingChannelOnMessageEventHandler(description, candidateObjec
 async function handleNegotiationNeededEvent() {
     makingOffer = true;
     await peerConnection.setLocalDescription();
+    console.log(peerConnection.localDescription);
     sendToPeer({ description: peerConnection.localDescription });
     console.log("SDP sent to peer");
     makingOffer = false;
@@ -114,10 +118,6 @@ function handleLocalIceCandidateEvent({candidate}) {
     if (candidate) {
         countLocalIceCandidates++;
     }
-    else {
-        console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
-        countLocalIceCandidates = 0;
-    }
     // send candidate to peer
     sendToPeer({candidate});
 };
@@ -126,13 +126,29 @@ function handleLocalIceCandidateEvent({candidate}) {
 function handleIceConnectionStateChangeEvent() {
     console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
     switch(peerConnection.iceConnectionState) {
-    case "disconnected":
-    case "closed":
-    case "failed":
-        closePeerConnection();
-        break;
-    default:
-        break;
+        case "connected":
+            let iceTransport = peerConnection.getSenders()[0].transport.iceTransport;
+            let pair = iceTransport.getSelectedCandidatePair();
+            console.log(pair.local);
+            console.log(pair.remote);
+            break;
+        case "disconnected":
+        case "closed":
+        case "failed":
+            closePeerConnection();
+            break;
+        default:
+            break;
+    }
+}
+
+function handleIceGatheringStateChangeEvent() {
+    if(peerConnection.iceGatheringState == "complete") {
+        console.log(`Local ICE candidates gathering complete: ${countLocalIceCandidates} found`);
+        countLocalIceCandidates = 0;
+    }
+    else {
+        console.log(`ICE candidates gathering state changed: ${peerConnection.iceGatheringState}`);
     }
 }
 
