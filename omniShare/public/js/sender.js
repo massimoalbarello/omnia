@@ -1,4 +1,4 @@
-const senderQRcode = document.getElementById('senderQRcode');
+const startScannerBtn = document.getElementById('startScannerBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
 
 // own thng's API key
@@ -28,14 +28,13 @@ function handlePeerPropertyWsOnMessageEvent(message) {
   const peerAPIkey = JSON.parse(message.data)[0].value;
   console.log(`Received peer API key: ${peerAPIkey}`);
 
-  senderQRcode.hidden = true;
   openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, null, connectionErrorHanlder);
   stopSharingBtn.hidden = false;
 };
 
 function connectionErrorHanlder() {
   stopSharingBtn.hidden = true;
-  senderQRcode.hidden = false;
+  startScannerBtn.hidden = false;
   console.log("Stopped sharing");
 }
 
