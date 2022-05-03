@@ -1,5 +1,6 @@
-const startScannerBtn = document.getElementById('startScannerBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
+
+stopSharingBtn.addEventListener('click', stopSharing);
 
 // own thng's API key
 const deviceApiKey = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";

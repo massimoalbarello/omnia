@@ -1,4 +1,7 @@
 const scannerContainer = document.getElementById('scannerContainer');
+const startScannerBtn = document.getElementById('startScannerBtn');
+
+startScannerBtn.addEventListener('click', startScanner);
 
 evrythng.setup({
     apiVersion: 1
