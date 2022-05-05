@@ -1,35 +1,46 @@
 const video = document.getElementById('video');
 const receiverQRcode = document.getElementById('receiverQRcode');
 
-// own thng's API key
-const deviceApiKey = "wxUwtxdpDxPXad08VSjej2evlwCfQ4Q4JpYCoZhzYXquuWnFmYnMb6q9Xnn7U7win1yyNvvHn2xxKwAv";
-const thngId = "VTy6QSN4nVbRE2cg9HcFUdpp";
-
-// WS used to received peer's API key from scanner
-const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${deviceApiKey}`;
-let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
-
 const polite = true;
 const streamer = false;
 
-peerPropertyWs.onopen = () => console.log("Peer property WS opened");
+let thngId;
 
-peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
+async function requestUID() {
 
-peerPropertyWs.onclose = () => {
-  console.log('Peer property WS closed');
-  peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+  const data = await fetch(`https://us-central1-omnia-8a9aa.cloudfunctions.net/generateUID?name=temporaryReceiver`, {
+    method: 'GET',
+  }).then(response => response.json());
+  thngId = data.thngId;
+  console.log("Generated thng id: " + thngId);
+
+  new QRCode(receiverQRcode, thngId);
+
+  const trustedAppKey = "yourTrustedAppApiKey";
+
+  // WS used to received peer's API key from scanner
+  const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${trustedAppKey}`;
+  let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+
+  peerPropertyWs.onopen = () => console.log("Peer property WS opened");
+
   peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
-  console.log('Reconnected to peer property WS');
-};
 
-// peer's API key received from scanner
+  peerPropertyWs.onclose = () => {
+    console.log('Peer property WS closed');
+    peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+    peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
+    console.log('Reconnected to peer property WS');
+  };
+}
+
+// peer's thng id received from scanner
 function handlePeerPropertyWsOnMessageEvent(message) {
-  const peerAPIkey = JSON.parse(message.data)[0].value;
-  console.log(`Received peer API key: ${peerAPIkey}`);
+  const peerThngId = JSON.parse(message.data)[0].value;
+  console.log(`Received peer thng id: ${peerThngId}`);
   
   receiverQRcode.hidden = true;
-  openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder);
+  openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder);
 };
 
 // called by the local WebRTC layer once a new track is added to the peer connection
@@ -71,3 +82,5 @@ function connectionErrorHanlder() {
   receiverQRcode.hidden = false;
   console.log("Stopped receiving shared screen");
 }
+
+requestUID();

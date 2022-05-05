@@ -14,13 +14,14 @@
 </head>
 
 <body>
-    <h1>v1.4</h1>
-    <img id="receiverQRcode" src="./figures/receiverQRcode.PNG" alt="Receiver QR code">
+    <h1>v1.5.1</h1>
+    <div id="receiverQRcode"></div>
     
     <video id="video" hidden="true" autoplay muted playsinline onplay="handleFirstPlay(event)"></video>
     
     <button onclick="openFullscreen()">Open Fullscreen</button>
-    
+
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
     <script src="js/signalingChannel.js"></script>
     <script src="js/webRTC.js"></script>

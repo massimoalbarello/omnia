@@ -1,35 +1,57 @@
+const scannerContainer = document.getElementById('scannerContainer');
+const startScannerBtn = document.getElementById('startScannerBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
 
-stopSharingBtn.addEventListener('click', stopSharing);
+evrythng.setup({
+  apiVersion: 1
+});
 
-// own thng's API key
-const deviceApiKey = "8R7Xng8aY5Sjip4VmLxYNe85gFpimyE1P1maHrP78aOeysSL8y5e4pivblc8NgWIUJOUdVJyO3SEdMyv";
-const thngId = "VTyqPXxTCd3P3hddsKFfQhch";
+evrythng.use(ScanThng);
 
-// WS used to received peer's API key from scanner
-const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${deviceApiKey}`;
-let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
-
+const trustedAppKey = "yourTrustedAppApiKey";
 const polite = false;
 const streamer = true;
 
-peerPropertyWs.onopen = () => console.log("Peer property WS opened");
+let thngId;
+let omniaApp = new evrythng.TrustedApplication(trustedAppKey);
 
-peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
+omniaApp.init().then(async () => {
+  await requestUID();
+  startScannerBtn.hidden = false;
+  startScannerBtn.addEventListener('click', startScanner);
+  stopSharingBtn.addEventListener('click', stopSharing);
+});
 
-peerPropertyWs.onclose = () => {
-  console.log('Peer property WS closed');
-  peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+async function requestUID() {
+
+  const data = await fetch(`https://us-central1-omnia-8a9aa.cloudfunctions.net/generateUID?name=temporarySender`, {
+    method: 'GET',
+  }).then(response => response.json());
+  thngId = data.thngId;
+  console.log("Generated thng id: " + thngId);
+
+  // WS used to received peer's API key from scanner
+  const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${trustedAppKey}`;
+  let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+
+  peerPropertyWs.onopen = () => console.log("Peer property WS opened");
+
   peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
-  console.log('Reconnected to peer property WS');
-};
 
-// peer's API key received from scanner
+  peerPropertyWs.onclose = () => {
+    console.log('Peer property WS closed');
+    peerPropertyWs = new WebSocket(peerPropertyWsUrl);
+    peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
+    console.log('Reconnected to peer property WS');
+  };
+}
+
+// peer's thng id received from scanner
 function handlePeerPropertyWsOnMessageEvent(message) {
-  const peerAPIkey = JSON.parse(message.data)[0].value;
-  console.log(`Received peer API key: ${peerAPIkey}`);
+  const peerThngId = JSON.parse(message.data)[0].value;
+  console.log(`Received peer thng id: ${peerThngId}`);
 
-  openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, null, connectionErrorHanlder);
+  openPeerConnection(thngId, polite, streamer, peerThngId, null, connectionErrorHanlder);
   stopSharingBtn.hidden = false;
 };
 
@@ -38,6 +60,23 @@ function connectionErrorHanlder() {
   startScannerBtn.hidden = false;
   console.log("Stopped sharing");
 }
+
+async function startScanner() {
+  console.log("Starting scanner");
+  startScannerBtn.hidden = true;
+  scannerContainer.hidden = false;
+  
+  const scanReceiver = await omniaApp.scanStream({
+      filter: { method: '2d', type: 'qr_code' },
+      containerId: 'scannerContainer',
+  });
+  const receiverThngId = scanReceiver[0].meta.value;
+
+  omniaApp.thng(thngId).property('peer').update(receiverThngId);
+  omniaApp.thng(receiverThngId).property('peer').update(thngId);
+  scannerContainer.hidden = true;
+}
+
 
 function stopSharing() {
   closePeerConnection();

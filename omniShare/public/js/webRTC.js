@@ -15,9 +15,9 @@ let ignoreOffer = false;
 let handleConnectionError;
 let isPolite;
 
-async function openPeerConnection(thngId, deviceApiKey, polite, streamer, peerAPIkey, handleTrackEvent, connectionErrorHanlder) {
+async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder) {
         
-    await openChannel(thngId, deviceApiKey, peerAPIkey, signalingChannelOnMessageEventHandler);
+    await openChannel(thngId, peerThngId, signalingChannelOnMessageEventHandler);
     console.log("Channel opened");
 
     // initialize peer connection only once the signaling channel is setup in order not to miss any messages
@@ -115,6 +115,7 @@ async function handleNegotiationNeededEvent() {
 
 // called by the ICE layer once a new candidate is found
 function handleLocalIceCandidateEvent({candidate}) {
+    console.log(candidate);
     if (candidate) {
         countLocalIceCandidates++;
     }
@@ -156,6 +157,7 @@ function handleIceGatheringStateChangeEvent() {
 function addIceCandidate(candidateObject) {
     if (candidateObject) {
         const iceCandidate = new RTCIceCandidate(candidateObject);
+        console.log(iceCandidate);
         peerConnection.addIceCandidate(iceCandidate);
         console.log("Remote candidate passed to ICE layer")
         countReceivedIceCandidates++;

@@ -1,16 +1,19 @@
 let remoteEnd;
 let localEnd;
 
-async function openChannel(thngId, deviceApiKey, peerAPIkey, handleSignalingChannelOnMessageEvent) {
+async function openChannel(thngId, peerThngId, handleSignalingChannelOnMessageEvent) {
+    const trustedAppKey = "yourTrustedAppApiKey";
+
     //WS used to receive remote SDP and ICE candidates from peer
-    const localEndUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${deviceApiKey}`;
+    const localEndUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${trustedAppKey}`;
     
     evrythng.setup({
         apiVersion: 1
     });
 
-    remoteEnd = new evrythng.Device(peerAPIkey);
-    await remoteEnd.init();
+    omniaApp = new evrythng.TrustedApplication(trustedAppKey);
+    await omniaApp.init();
+    remoteEnd = omniaApp.thng(peerThngId);
     console.log(`Remote end of the signaling channel opened`);
     
     await openLocalEndWS(localEndUrl, handleSignalingChannelOnMessageEvent);
