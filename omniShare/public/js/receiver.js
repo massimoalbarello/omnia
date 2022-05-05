@@ -1,12 +1,13 @@
 const video = document.getElementById('video');
 const receiverQRcode = document.getElementById('receiverQRcode');
 
+const trustedAppKey = "yourTrustedAppApiKey";
 const polite = true;
 const streamer = false;
 
 let thngId;
 
-async function requestUID() {
+async function setupThngIdExchange() {
 
   const data = await fetch(`https://us-central1-omnia-8a9aa.cloudfunctions.net/generateUID?name=temporaryReceiver`, {
     method: 'GET',
@@ -14,15 +15,15 @@ async function requestUID() {
   thngId = data.thngId;
   console.log("Generated thng id: " + thngId);
 
-  new QRCode(receiverQRcode, thngId);
-
-  const trustedAppKey = "yourTrustedAppApiKey";
-
   // WS used to received peer's API key from scanner
   const peerPropertyWsUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/peer?access_token=${trustedAppKey}`;
   let peerPropertyWs = new WebSocket(peerPropertyWsUrl);
 
-  peerPropertyWs.onopen = () => console.log("Peer property WS opened");
+  peerPropertyWs.onopen = () => {
+    new QRCode(receiverQRcode, thngId);
+    receiverQRcode.hidden = false;
+    console.log("Peer property WS opened");
+  }
 
   peerPropertyWs.onmessage = handlePeerPropertyWsOnMessageEvent;
 
@@ -53,16 +54,6 @@ function handleTrackEvent(event) {
   console.log('Received remote stream');
 };
 
-function openFullscreen() {
-  if (video.requestFullscreen) {
-    video.requestFullscreen();
-  } else if (video.webkitRequestFullscreen) { /* Safari */
-    video.webkitRequestFullscreen();
-  } else if (video.msRequestFullscreen) { /* IE11 */
-    video.msRequestFullscreen();
-  };
-}
-
 let hasPlayed = false;
 function handleFirstPlay() {
   if (!hasPlayed) {
@@ -83,4 +74,14 @@ function connectionErrorHanlder() {
   console.log("Stopped receiving shared screen");
 }
 
-requestUID();
+function openFullscreen() {
+  if (video.requestFullscreen) {
+    video.requestFullscreen();
+  } else if (video.webkitRequestFullscreen) { /* Safari */
+    video.webkitRequestFullscreen();
+  } else if (video.msRequestFullscreen) { /* IE11 */
+    video.msRequestFullscreen();
+  };
+}
+
+setupThngIdExchange();
