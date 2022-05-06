@@ -14,8 +14,10 @@ let makingOffer = false;
 let ignoreOffer = false;
 let handleConnectionError;
 let isPolite;
+let sendChannel;
+let receiveChannel;
 
-async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder) {
+async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder, dataChannelOpenedEventHandler) {
         
     await openChannel(thngId, peerThngId, signalingChannelOnMessageEventHandler);
     console.log("Channel opened");
@@ -48,6 +50,9 @@ async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTr
             .getDisplayMedia(options)
             .then((stream) => {
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                sendChannel = peerConnection.createDataChannel("dataChannel");
+                sendChannel.onopen = handleSenderChannelStateChange;
+                sendChannel.onclose = handleSenderChannelStateChange;
             })
             .catch(function(e) {
             alert('getDisplayMedia() failed');
@@ -56,6 +61,42 @@ async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTr
     }
     else {
         peerConnection.ontrack = handleTrackEvent;
+        peerConnection.ondatachannel = handleReceiveChannelRequest;
+    }
+        
+    function handleSenderChannelStateChange() {
+        if (sendChannel) {
+            let state = sendChannel.readyState;
+            console.log(`Sender channel state changed: ${state}`);
+            if (state == "open") {
+                dataChannelOpenedEventHandler();
+            }
+        }
+    }
+
+    function handleReceiveChannelRequest(event) {
+        receiveChannel = event.channel;
+        receiveChannel.onmessage = handleReceiveMessage;
+        receiveChannel.onopen = handleReceiveChannelStatusChange;
+        receiveChannel.onclose = handleReceiveChannelStatusChange;
+    }
+        
+    function handleReceiveMessage(event) {
+        let el = document.createElement("p");
+        let txtNode = document.createTextNode(event.data);
+        
+        el.appendChild(txtNode);
+        receiveBox.appendChild(el);
+    }
+
+    function handleReceiveChannelStatusChange() {
+        if (receiveChannel) {
+            let state = receiveChannel.readyState;
+            console.log("Receive channel status changed: " + state);
+            if (state === "open") {
+                dataChannelOpenedEventHandler();
+            }
+        }
     }
 }
 
@@ -169,6 +210,15 @@ function addIceCandidate(candidateObject) {
 }
 
 function closePeerConnection() {
+    if (sendChannel) {
+        sendChannel.close();
+        sendChannel = null;
+    }
+    if (receiveChannel) {
+        receiveChannel.close();
+        receiveChannel = null;
+    }
+
     peerConnection.onicecandidate = null;
     peerConnection.oniceconnectionstatechange = null;
     peerConnection.onicegatheringstatechange = null;

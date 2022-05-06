@@ -1,5 +1,6 @@
 const video = document.getElementById('video');
 const receiverQRcode = document.getElementById('receiverQRcode');
+const receiveBox = document.getElementById('receiveBox');
 
 const trustedAppKey = "yourTrustedAppApiKey";
 const polite = true;
@@ -41,7 +42,7 @@ function handlePeerPropertyWsOnMessageEvent(message) {
   console.log(`Received peer thng id: ${peerThngId}`);
   
   receiverQRcode.hidden = true;
-  openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder);
+  openPeerConnection(thngId, polite, streamer, peerThngId, handleTrackEvent, connectionErrorHanlder, receiverChannelOpenedEventHandler);
 };
 
 // called by the local WebRTC layer once a new track is added to the peer connection
@@ -71,7 +72,12 @@ function connectionErrorHanlder() {
   video.hidden = true;
   hasPlayed = false;
   receiverQRcode.hidden = false;
+  receiveBox.hidden = true;
   console.log("Stopped receiving shared screen");
+}
+
+function receiverChannelOpenedEventHandler() {
+  receiveBox.hidden = false;
 }
 
 function openFullscreen() {

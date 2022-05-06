@@ -1,6 +1,9 @@
 const scannerContainer = document.getElementById('scannerContainer');
 const startScannerBtn = document.getElementById('startScannerBtn');
 const stopSharingBtn = document.getElementById('stopSharingBtn');
+const messageBox = document.getElementById('messageBox');
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
 
 evrythng.setup({
   apiVersion: 1
@@ -33,9 +36,10 @@ async function setupThngIdExchange() {
     console.log(`Received peer thng id: ${peerThngId}`);
     omniaApp.thng(peerThngId).property('peer').update(thngId);
     
-    openPeerConnection(thngId, polite, streamer, peerThngId, null, connectionErrorHanlder);
+    openPeerConnection(thngId, polite, streamer, peerThngId, null, connectionErrorHanlder, senderChannelOpenedEventHandler);
     stopSharingBtn.hidden = false;
     stopSharingBtn.addEventListener('click', stopSharing);
+    sendButton.addEventListener('click', sendMessage, false);
   });
 }
 
@@ -55,7 +59,23 @@ async function startScanner() {
 function connectionErrorHanlder() {
   stopSharingBtn.hidden = true;
   startScannerBtn.hidden = false;
+  messageInput.value = "";
+  messageBox.hidden = true;
+  sendButton.hidden = true;
   console.log("Stopped sharing");
+}
+
+function senderChannelOpenedEventHandler() {
+  messageBox.hidden = false;
+  sendButton.hidden = false;
+  messageInput.focus();
+}
+
+function sendMessage() {
+  let message = messageInput.value;
+  sendChannel.send(message);  
+  messageInput.value = "";
+  messageInput.focus();
 }
 
 function stopSharing() {

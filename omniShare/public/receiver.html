@@ -14,10 +14,14 @@
 </head>
 
 <body>
-    <h1>v1.5.3</h1>
+    <h1>v1.5.5</h1>
     <div id="receiverQRcode" hidden="true"></div>
     
     <video id="video" hidden="true" autoplay muted playsinline onplay="handleFirstPlay(event)"></video>
+    
+    <div class="messagebox" id="receiveBox" hidden>
+        <p>Messages received:</p>
+    </div>
     
     <button onclick="openFullscreen()">Open Fullscreen</button>
 

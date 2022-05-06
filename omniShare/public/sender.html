@@ -14,11 +14,21 @@
 </head>
 
 <body>
-    <h1>v1.5.3</h1>
+    <h1>v1.5.5</h1>
 
     <button id="startScannerBtn" hidden="true">Start Scanner</button>
     <div id="scannerContainer" hidden="true"></div>
     <button id="stopSharingBtn" hidden="true">Stop Sharing</button>
+
+    <div id="messageBox" class="messagebox" hidden>
+        <label for="message">Enter a message:
+          <input type="text" name="message" id="messageInput" placeholder="Message text"
+                  inputmode="latin" size=60 maxlength=120>
+        </label>
+        <button id="sendButton" name="sendButton" class="buttonright">
+          Send
+        </button>
+    </div>
 
     <script src="https://d10ka0m22z5ju5.cloudfront.net/js/evrythng/6.0.5/evrythng-6.0.5.js"></script>
     <script src="js/qr.js"></script>
