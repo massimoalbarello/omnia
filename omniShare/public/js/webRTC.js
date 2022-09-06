@@ -50,18 +50,18 @@ async function openPeerConnection(thngId, polite, streamer, peerThngId, handleTr
             .getDisplayMedia(options)
             .then((stream) => {
                 stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-                // sendChannel = peerConnection.createDataChannel("dataChannel");
-                // sendChannel.onopen = handleSenderChannelStateChange;
-                // sendChannel.onclose = handleSenderChannelStateChange;
+                sendChannel = peerConnection.createDataChannel("dataChannel");
+                sendChannel.onopen = handleSenderChannelStateChange;
+                sendChannel.onclose = handleSenderChannelStateChange;
             })
             .catch(function(e) {
-                alert('getDisplayMedia() failed');
-                console.log('getDisplayMedia() error: ', e);
+            alert('getDisplayMedia() failed');
+            console.log('getDisplayMedia() error: ', e);
             });
     }
     else {
         peerConnection.ontrack = handleTrackEvent;
-        // peerConnection.ondatachannel = handleReceiveChannelRequest;
+        peerConnection.ondatachannel = handleReceiveChannelRequest;
     }
         
     function handleSenderChannelStateChange() {
