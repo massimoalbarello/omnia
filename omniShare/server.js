@@ -10,7 +10,7 @@ const keyfile = fs.readFileSync(path.join(__dirname, "cert", "key.pem"));
 
 const port = 6969;
 const localIp = "127.0.0.1";
-const passphrase = "passphrase_used_to_create_certificate";
+const passphrase = "lasocietadellarete";
 
 const secureServer = https.createServer({ cert: certfile, key: keyfile, passphrase: passphrase }, app);
 

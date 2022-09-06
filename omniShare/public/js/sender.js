@@ -11,7 +11,7 @@ evrythng.setup({
 
 evrythng.use(ScanThng);
 
-const trustedAppKey = "yourTrustedAppApiKey";
+const trustedAppKey = "gTibS5rdLBrH38ABAREv4WnvKvD0bqxGTdJ1ikybjRCTLy6uVtmUMsGT1zLi1V4wylWBfV8PHvYK9JHa";
 const polite = false;
 const streamer = true;
 
@@ -34,7 +34,9 @@ async function setupThngIdExchange() {
   startScannerBtn.addEventListener('click', async () => {
     const peerThngId = await startScanner();
     console.log(`Received peer thng id: ${peerThngId}`);
-    omniaApp.thng(peerThngId).property('peer').update(thngId);
+    omniaApp.thng(peerThngId).property('peer').update(thngId).then(() => {
+      console.log(`Updated peer thng id: ${peerThngId}`);
+    });
     
     openPeerConnection(thngId, polite, streamer, peerThngId, null, connectionErrorHanlder, senderChannelOpenedEventHandler);
     stopSharingBtn.hidden = false;

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Get mouse coordinates</title>
+    </head>
+
+    <body>
+        <script>
+            const servers = {
+                iceServers: [
+                    {
+                        urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+                    },
+                ]
+            };
+
+            const account = "mez";
+            fetch(
+                "http://127.0.0.1:3000/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "peripheral": "pointer",
+                        "account": account,
+                        "ip": "64.6.76.34",
+                    })
+                }
+            ).then((response) => {
+                return response.json();
+            }).then(({id, signalingChannel}) => {
+                console.log(id, signalingChannel);
+                const signaling = new WebSocket("ws://" + signalingChannel);
+                
+                signaling.onopen = () => {
+                    peerConnection = new RTCPeerConnection(servers); 
+                    
+                    makingOffer = false;
+                    peerConnection.onnegotiationneeded = handleNegotiationNeededEvent;
+
+                    // icecandidate events are fired as soon as the local description is set
+                    countLocalIceCandidates = 0;
+                    peerConnection.onicecandidate = (event) => {
+                        console.log(event.candidate);
+                        signaling.send(JSON.stringify({
+                            account: account,
+                            id: id,
+                            candidate: event.candidate
+                        }));
+                    };
+        
+                    sendChannel = peerConnection.createDataChannel("dataChannel");
+                    sendChannel.onopen = handleSenderChannelStateChange;
+                    sendChannel.onclose = handleSenderChannelStateChange;
+                }
+
+                 // called whenever the WebRTC infrastructure needs you to start the session negotiation process anew
+                 async function handleNegotiationNeededEvent() {
+                    makingOffer = true;
+                    await peerConnection.setLocalDescription();
+                    console.log(peerConnection.localDescription);
+                    signaling.send(JSON.stringify({
+                        account: account,
+                        id: id,
+                        sdp: peerConnection.localDescription
+                    }));
+                    console.log("SDP sent to peer");
+                    makingOffer = false;
+                };
+                    
+                function handleSenderChannelStateChange() {
+                    if (sendChannel) {
+                        let state = sendChannel.readyState;
+                        console.log(`Sender channel state changed: ${state}`);
+                        if (state == "open") {
+                            dataChannelOpenedEventHandler();
+                        }
+                    }
+                }
+
+                function handleReceiveChannelRequest(event) {
+                    receiveChannel = event.channel;
+                    receiveChannel.onmessage = handleReceiveMessage;
+                    receiveChannel.onopen = handleReceiveChannelStatusChange;
+                    receiveChannel.onclose = handleReceiveChannelStatusChange;
+                }
+                    
+                function handleReceiveMessage(event) {
+                    let el = document.createElement("p");
+                    let txtNode = document.createTextNode(event.data);
+                    
+                    el.appendChild(txtNode);
+                    receiveBox.appendChild(el);
+                }
+
+                function handleReceiveChannelStatusChange() {
+                    if (receiveChannel) {
+                        let state = receiveChannel.readyState;
+                        console.log("Receive channel status changed: " + state);
+                        if (state === "open") {
+                            dataChannelOpenedEventHandler();
+                        }
+                    }
+                }
+            });
+
+            // let count = 0;
+            // window.addEventListener('mousemove', (event) => {
+            //     if (count >= 9) {
+            //         console.log(event.clientX, event.clientY);
+            //         count = 0;
+            //     }
+            //     else {
+            //         count++;
+            //     }
+            // });
+        </script>
+    </body>
+</html>

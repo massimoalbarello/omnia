@@ -2,7 +2,7 @@ let remoteEnd;
 let localEnd;
 
 async function openChannel(thngId, peerThngId, handleSignalingChannelOnMessageEvent) {
-    const trustedAppKey = "yourTrustedAppApiKey";
+    const trustedAppKey = "gTibS5rdLBrH38ABAREv4WnvKvD0bqxGTdJ1ikybjRCTLy6uVtmUMsGT1zLi1V4wylWBfV8PHvYK9JHa";
 
     //WS used to receive remote SDP and ICE candidates from peer
     const localEndUrl = `wss://ws.evrythng.com:443/thngs/${thngId}/properties/signalingchannel?access_token=${trustedAppKey}`;
